@@ -26,3 +26,4 @@
 /Users/sungyulin/Documents/medical-appointment-system/Backend/obj/Debug/net9.0/Backend.pdb
 /Users/sungyulin/Documents/medical-appointment-system/Backend/obj/Debug/net9.0/Backend.genruntimeconfig.cache
 /Users/sungyulin/Documents/medical-appointment-system/Backend/obj/Debug/net9.0/ref/Backend.dll
+/Users/sungyulin/Documents/medical-appointment-system/Backend/obj/Debug/net9.0/Backend.sourcelink.json

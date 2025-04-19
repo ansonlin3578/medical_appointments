@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Backend.Models;
+using Backend.Repositories;
 
 namespace Backend.Controllers;
 
@@ -7,51 +8,52 @@ namespace Backend.Controllers;
 [Route("api/[controller]")]
 public class AppointmentsController : ControllerBase
 {
-    private static readonly List<Appointment> _appointments = new();
+    private readonly AppointmentsRepository _repo;
+
+    public AppointmentsController(AppointmentsRepository repo)
+    {
+        _repo = repo;
+    }
 
     [HttpGet]
-    public ActionResult<IEnumerable<Appointment>> GetAll()
+    public async Task<ActionResult<IEnumerable<Appointment>>> GetAll()
     {
-        return Ok(_appointments);
+        var data = await _repo.GetAllAsync();
+        return Ok(data);
     }
 
     [HttpGet("{id}")]
-    public ActionResult<Appointment> GetById(Guid id)
+    public async Task<ActionResult<Appointment>> GetById(Guid id)
     {
-        var a = _appointments.FirstOrDefault(x => x.Id == id);
+        var a = await _repo.GetByIdAsync(id);
         return a == null ? NotFound() : Ok(a);
     }
 
     [HttpPost]
-    public ActionResult<Appointment> Create(Appointment a)
+    public async Task<ActionResult<Appointment>> Create(Appointment a)
     {
-        a.Id = Guid.NewGuid();
-        _appointments.Add(a);
+        await _repo.CreateAsync(a);
         return CreatedAtAction(nameof(GetById), new { id = a.Id }, a);
     }
 
     [HttpPut("{id}")]
-    public IActionResult Update(Guid id, Appointment updated)
+    public async Task<IActionResult> Update(Guid id, Appointment updated)
     {
-        var a = _appointments.FirstOrDefault(x => x.Id == id);
-        if (a == null) return NotFound();
+        var existing = await _repo.GetByIdAsync(id);
+        if (existing == null) return NotFound();
 
-        a.Name = updated.Name;
-        a.Date = updated.Date;
-        a.StartTime = updated.StartTime;
-        a.EndTime = updated.EndTime;
-        a.DoctorId = updated.DoctorId;
-
+        updated.Id = id;
+        await _repo.UpdateAsync(updated);
         return NoContent();
     }
 
     [HttpDelete("{id}")]
-    public IActionResult Delete(Guid id)
+    public async Task<IActionResult> Delete(Guid id)
     {
-        var a = _appointments.FirstOrDefault(x => x.Id == id);
-        if (a == null) return NotFound();
+        var existing = await _repo.GetByIdAsync(id);
+        if (existing == null) return NotFound();
 
-        _appointments.Remove(a);
+        await _repo.DeleteAsync(id);
         return NoContent();
     }
 }
