@@ -1,3 +1,3 @@
-## 1. client    <--->  前端React
-## 2. Backend   <--->  Dotnetc後端
-## 3. Server    <--->  Express後端(參考目前的邏輯用)
+## 1. client folder    <--->  前端React
+## 2. Backend folder  <--->  Dotnetc後端
+## 3. server folder   <--->  Express後端(參考目前的邏輯用)
