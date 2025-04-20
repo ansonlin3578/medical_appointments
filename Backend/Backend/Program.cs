@@ -7,8 +7,18 @@ using Dapper;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+// 設定 CORS 規則
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins("http://localhost:3000")  // 允許 React 本地開發環境
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 
+builder.Services.AddControllers();
 builder.Services.AddScoped<IDbConnection>(sp =>
 {
     var configuration = sp.GetRequiredService<IConfiguration>();
@@ -23,7 +33,10 @@ SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
 // SqlMapper.AddTypeHandler(new TimeOnlyTypeHandler()); // 雖然不用 TimeOnly，但預備可以加
 SqlMapper.AddTypeHandler(new TimeSpanHandler());     // 必要
 app.UseHttpsRedirection();
+
+// 加這行來啟用 CORS
+app.UseCors();
+// 路由 & 授權
 app.UseAuthorization();
 app.MapControllers();
-
 app.Run();

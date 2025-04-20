@@ -28,6 +28,13 @@ public class AppointmentsController : ControllerBase
         var a = await _repo.GetByIdAsync(id);
         return a == null ? NotFound() : Ok(a);
     }
+    
+    [HttpGet("occupied")]
+    public async Task<ActionResult<IEnumerable<string>>> GetOccupiedTimes([FromQuery] DateOnly date, [FromQuery] Guid doctorId)
+    {
+        var results = await _repo.GetOccupiedTimesAsync(date, doctorId);
+        return Ok(results);
+    }
 
     [HttpPost]
     public async Task<ActionResult<Appointment>> Create(Appointment a)

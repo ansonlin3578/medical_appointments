@@ -16,15 +16,47 @@ public class AppointmentsRepository
     public async Task<IEnumerable<Appointment>> GetAllAsync()
     {
         // language=PostgreSQL
-        var sql = "SELECT * FROM appointments_v2 ORDER BY date, start_time";
+        var sql = @"
+            SELECT
+                id,
+                name,
+                date,
+                start_time AS StartTime,
+                end_time AS EndTime,
+                doctor_id AS DoctorId
+            FROM appointments_v2
+            ORDER BY date, start_time";
+
         return await _db.QueryAsync<Appointment>(sql);
     }
 
     public async Task<Appointment?> GetByIdAsync(Guid id)
     {
         // language=PostgreSQL
-        var sql = "SELECT * FROM appointments_v2 WHERE id = @Id";
+        var sql = @"
+            SELECT
+                id,
+                name,
+                date,
+                start_time AS StartTime,
+                end_time AS EndTime,
+                doctor_id AS DoctorId
+            FROM appointments_v2
+            WHERE id = @Id";
+
         return await _db.QueryFirstOrDefaultAsync<Appointment>(sql, new { Id = id });
+    }
+
+    public async Task<IEnumerable<string>> GetOccupiedTimesAsync(DateOnly date, Guid doctorId)
+    {
+        // language=PostgreSQL
+        const string sql = @"
+            SELECT start_time
+            FROM appointments_v2
+            WHERE date = @Date AND doctor_id = @DoctorId";
+
+        var times = await _db.QueryAsync<TimeSpan>(sql, new { Date = date, DoctorId = doctorId });
+        return times.Select(t => t.ToString(@"hh\:mm\:ss"));
     }
 
     public async Task CreateAsync(Appointment a)
@@ -34,7 +66,6 @@ public class AppointmentsRepository
             INSERT INTO appointments_v2 (id, name, date, start_time, end_time, doctor_id)
             VALUES (@Id, @Name, @Date, @StartTime, @EndTime, @DoctorId)";
         a.Id = Guid.NewGuid();
-        Console.WriteLine($"➡ Creating appointment for {a.Name} with doctor {a.DoctorId}");
         await _db.ExecuteAsync(sql, a);
     }
 
