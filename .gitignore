@@ -304,3 +304,5 @@ out
 *.ipr
 /out/
 
+.DS_Store
+/Backend/.DS_Store
