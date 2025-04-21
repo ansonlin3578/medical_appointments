@@ -1,92 +1,77 @@
-using Dapper;
-using System.Data;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Backend.Models;
+using Backend.Data;
 
 namespace Backend.Repositories;
 
-public class AppointmentsRepository
+public class AppointmentsRepository : IAppointmentsRepository
 {
-    private readonly IDbConnection _db;
+    private readonly ApplicationDbContext _context;
 
-    public AppointmentsRepository(IDbConnection db)
+    public AppointmentsRepository(ApplicationDbContext context)
     {
-        _db = db;
+        _context = context;
     }
 
-    public async Task<IEnumerable<Appointment>> GetAllAsync()
+    public async Task<Appointment> CreateAsync(Appointment appointment)
     {
-        // language=PostgreSQL
-        var sql = @"
-            SELECT
-                id,
-                name,
-                date,
-                start_time AS StartTime,
-                end_time AS EndTime,
-                doctor_id AS DoctorId
-            FROM appointments_v2
-            ORDER BY date, start_time";
-
-        return await _db.QueryAsync<Appointment>(sql);
+        _context.Appointments.Add(appointment);
+        await _context.SaveChangesAsync();
+        return appointment;
     }
 
-    public async Task<Appointment?> GetByIdAsync(Guid id)
+    public async Task<Appointment> GetByIdAsync(int id)
     {
-        // language=PostgreSQL
-        var sql = @"
-            SELECT
-                id,
-                name,
-                date,
-                start_time AS StartTime,
-                end_time AS EndTime,
-                doctor_id AS DoctorId
-            FROM appointments_v2
-            WHERE id = @Id";
-
-        return await _db.QueryFirstOrDefaultAsync<Appointment>(sql, new { Id = id });
+        return await _context.Appointments
+            .Include(a => a.Patient)
+            .Include(a => a.Doctor)
+            .FirstOrDefaultAsync(a => a.Id == id);
     }
 
-    public async Task<IEnumerable<string>> GetOccupiedTimesAsync(DateOnly date, Guid doctorId)
+    public async Task<IEnumerable<Appointment>> GetByPatientIdAsync(int patientId)
     {
-        // language=PostgreSQL
-        const string sql = @"
-            SELECT start_time
-            FROM appointments_v2
-            WHERE date = @Date AND doctor_id = @DoctorId";
-
-        var times = await _db.QueryAsync<TimeSpan>(sql, new { Date = date, DoctorId = doctorId });
-        return times.Select(t => t.ToString(@"hh\:mm\:ss"));
+        return await _context.Appointments
+            .Include(a => a.Doctor)
+            .Where(a => a.PatientId == patientId)
+            .ToListAsync();
     }
 
-    public async Task CreateAsync(Appointment a)
+    public async Task<IEnumerable<Appointment>> GetByDoctorIdAsync(int doctorId)
     {
-        // language=PostgreSQL
-        var sql = @"
-            INSERT INTO appointments_v2 (id, name, date, start_time, end_time, doctor_id)
-            VALUES (@Id, @Name, @Date, @StartTime, @EndTime, @DoctorId)";
-        a.Id = Guid.NewGuid();
-        await _db.ExecuteAsync(sql, a);
+        return await _context.Appointments
+            .Include(a => a.Patient)
+            .Where(a => a.DoctorId == doctorId)
+            .ToListAsync();
     }
 
-    public async Task UpdateAsync(Appointment a)
+    public async Task<Appointment> UpdateAsync(Appointment appointment)
     {
-        // language=PostgreSQL
-        var sql = @"
-            UPDATE appointments_v2 SET
-                name = @Name,
-                date = @Date,
-                start_time = @StartTime,
-                end_time = @EndTime,
-                doctor_id = @DoctorId
-            WHERE id = @Id";
-        await _db.ExecuteAsync(sql, a);
+        _context.Entry(appointment).State = EntityState.Modified;
+        await _context.SaveChangesAsync();
+        return appointment;
     }
 
-    public async Task DeleteAsync(Guid id)
+    public async Task<bool> DeleteAsync(int id)
     {
-        // language=PostgreSQL
-        var sql = "DELETE FROM appointments_v2 WHERE id = @Id";
-        await _db.ExecuteAsync(sql, new { Id = id });
+        var appointment = await _context.Appointments.FindAsync(id);
+        if (appointment == null)
+            return false;
+
+        _context.Appointments.Remove(appointment);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> IsTimeSlotAvailableAsync(int doctorId, DateTime date, TimeSpan startTime, TimeSpan endTime)
+    {
+        return !await _context.Appointments
+            .AnyAsync(a => a.DoctorId == doctorId &&
+                         a.AppointmentDate.Date == date.Date &&
+                         ((a.StartTime <= startTime && a.EndTime > startTime) ||
+                          (a.StartTime < endTime && a.EndTime >= endTime) ||
+                          (a.StartTime >= startTime && a.EndTime <= endTime)));
     }
 }

@@ -1,11 +1,32 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Backend.Models;
 
 public class Appointment
 {
-    public Guid Id { get; set; }
-    public string Name { get; set; } = "";
-    public DateOnly Date { get; set; }        // e.g., 2025-04-22
-    public TimeSpan StartTime { get; set; }   // e.g., 09:00:00
-    public TimeSpan EndTime { get; set; }     // e.g., 10:00:00
-    public Guid DoctorId { get; set; }
+    [Key]
+    public int Id { get; set; }
+
+    [Required]
+    public int PatientId { get; set; }
+    public Patient Patient { get; set; }
+
+    [Required]
+    public int DoctorId { get; set; }
+    public Doctor Doctor { get; set; }
+
+    [Required]
+    public DateTime AppointmentDate { get; set; }
+
+    [Required]
+    public TimeSpan StartTime { get; set; }
+
+    [Required]
+    public TimeSpan EndTime { get; set; }
+
+    [Required]
+    public string Status { get; set; } // "Scheduled", "Completed", "Cancelled"
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
