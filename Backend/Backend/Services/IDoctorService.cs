@@ -1,4 +1,7 @@
 using Backend.Models;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Backend.Services
 {
@@ -15,11 +18,14 @@ namespace Backend.Services
         Task<ServiceResult<bool>> RemoveSpecialty(int specialtyId);
         
         // 醫生信息管理
-        Task<ServiceResult<User>> UpdateDoctorProfile(int doctorId, User doctor);
+        Task<ServiceResult<User>> UpdateDoctorProfile(int doctorId, Doctor doctor);
         Task<ServiceResult<User>> GetDoctorProfile(int doctorId);
         
         // 搜索和過濾
         Task<ServiceResult<IEnumerable<User>>> SearchDoctors(string specialty, string name);
         Task<ServiceResult<IEnumerable<User>>> GetAvailableDoctors(DateTime date, TimeSpan time);
+
+        Task<ServiceResult<IEnumerable<Appointment>>> GetDoctorAppointments(int doctorId);
+        Task<ServiceResult<IEnumerable<DoctorSchedule>>> GetAvailableTimeSlots(int doctorId, DateTime date);
     }
 } 

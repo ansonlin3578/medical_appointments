@@ -1,6 +1,10 @@
 using Backend.Data;
 using Backend.Models;
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Backend.Services
 {
@@ -161,38 +165,14 @@ namespace Backend.Services
             }
         }
 
-        public async Task<ServiceResult<User>> UpdateDoctorProfile(int doctorId, User doctor)
-        {
-            try
-            {
-                var existingDoctor = await _context.Users.FindAsync(doctorId);
-                if (existingDoctor == null || existingDoctor.Role != "Doctor")
-                    return ServiceResult<User>.ErrorResult("Doctor not found", "DOCTOR_NOT_FOUND");
-
-                // 更新允許修改的字段
-                existingDoctor.FirstName = doctor.FirstName;
-                existingDoctor.LastName = doctor.LastName;
-                existingDoctor.Email = doctor.Email;
-                existingDoctor.Phone = doctor.Phone;
-                existingDoctor.Address = doctor.Address;
-
-                await _context.SaveChangesAsync();
-                return ServiceResult<User>.SuccessResult(existingDoctor);
-            }
-            catch (Exception ex)
-            {
-                return ServiceResult<User>.ErrorResult(
-                    "An error occurred while updating doctor profile",
-                    "PROFILE_UPDATE_ERROR");
-            }
-        }
-
         public async Task<ServiceResult<User>> GetDoctorProfile(int doctorId)
         {
             try
             {
-                var doctor = await _context.Users.FindAsync(doctorId);
-                if (doctor == null || doctor.Role != "Doctor")
+                var doctor = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Id == doctorId && u.Role == "Doctor");
+
+                if (doctor == null)
                     return ServiceResult<User>.ErrorResult("Doctor not found", "DOCTOR_NOT_FOUND");
 
                 return ServiceResult<User>.SuccessResult(doctor);
@@ -201,7 +181,32 @@ namespace Backend.Services
             {
                 return ServiceResult<User>.ErrorResult(
                     "An error occurred while retrieving doctor profile",
-                    "PROFILE_RETRIEVAL_ERROR");
+                    "DOCTOR_RETRIEVAL_ERROR");
+            }
+        }
+
+        public async Task<ServiceResult<User>> UpdateDoctorProfile(int doctorId, Doctor doctor)
+        {
+            try
+            {
+                var existingDoctor = await _context.Users.FindAsync(doctorId);
+                if (existingDoctor == null || existingDoctor.Role != "Doctor")
+                    return ServiceResult<User>.ErrorResult("Doctor not found", "DOCTOR_NOT_FOUND");
+
+                // 更新醫生信息
+                existingDoctor.FirstName = doctor.Name.Split(' ')[0];
+                existingDoctor.LastName = doctor.Name.Split(' ').Length > 1 ? doctor.Name.Split(' ')[1] : "";
+                existingDoctor.UpdatedAt = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                return ServiceResult<User>.SuccessResult(existingDoctor);
+            }
+            catch (Exception ex)
+            {
+                return ServiceResult<User>.ErrorResult(
+                    "An error occurred while updating doctor profile",
+                    "DOCTOR_UPDATE_ERROR");
             }
         }
 
@@ -257,6 +262,66 @@ namespace Backend.Services
                 return ServiceResult<IEnumerable<User>>.ErrorResult(
                     "An error occurred while retrieving available doctors",
                     "AVAILABLE_DOCTORS_RETRIEVAL_ERROR");
+            }
+        }
+
+        public async Task<ServiceResult<IEnumerable<Appointment>>> GetDoctorAppointments(int doctorId)
+        {
+            try
+            {
+                var appointments = await _context.Appointments
+                    .Include(a => a.Patient)
+                    .Where(a => a.DoctorId == doctorId)
+                    .OrderByDescending(a => a.AppointmentDate)
+                    .ThenBy(a => a.StartTime)
+                    .ToListAsync();
+
+                return ServiceResult<IEnumerable<Appointment>>.SuccessResult(appointments);
+            }
+            catch (Exception ex)
+            {
+                return ServiceResult<IEnumerable<Appointment>>.ErrorResult(
+                    "An error occurred while retrieving doctor appointments",
+                    "APPOINTMENTS_RETRIEVAL_ERROR");
+            }
+        }
+
+        public async Task<ServiceResult<IEnumerable<DoctorSchedule>>> GetAvailableTimeSlots(int doctorId, DateTime date)
+        {
+            try
+            {
+                var dayOfWeek = date.DayOfWeek;
+                var schedules = await _context.DoctorSchedules
+                    .Where(ds => ds.DoctorId == doctorId && 
+                                ds.DayOfWeek == dayOfWeek && 
+                                ds.IsAvailable)
+                    .OrderBy(ds => ds.StartTime)
+                    .ToListAsync();
+
+                // 獲取已預約的時間段
+                var appointments = await _context.Appointments
+                    .Where(a => a.DoctorId == doctorId && 
+                               a.AppointmentDate.Date == date.Date && 
+                               a.Status != "Cancelled")
+                    .Select(a => new { a.StartTime, a.EndTime })
+                    .ToListAsync();
+
+                // 過濾掉已預約的時間段
+                var availableSlots = schedules.Where(schedule =>
+                    !appointments.Any(appointment =>
+                        (schedule.StartTime >= appointment.StartTime && schedule.StartTime < appointment.EndTime) ||
+                        (schedule.EndTime > appointment.StartTime && schedule.EndTime <= appointment.EndTime) ||
+                        (schedule.StartTime <= appointment.StartTime && schedule.EndTime >= appointment.EndTime)
+                    )
+                ).ToList();
+
+                return ServiceResult<IEnumerable<DoctorSchedule>>.SuccessResult(availableSlots);
+            }
+            catch (Exception ex)
+            {
+                return ServiceResult<IEnumerable<DoctorSchedule>>.ErrorResult(
+                    "An error occurred while retrieving available time slots",
+                    "TIME_SLOTS_RETRIEVAL_ERROR");
             }
         }
     }
