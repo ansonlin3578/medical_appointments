@@ -54,7 +54,7 @@ namespace Backend.Controllers
         {
             var result = await _doctorService.SetSchedule(schedule);
             if (!result.Success)
-                return BadRequest(result.ErrorMessage);
+                return StatusCode(400, new { Message = result.ErrorMessage });
 
             return Ok(result.Data);
         }

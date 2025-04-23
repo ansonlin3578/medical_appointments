@@ -42,22 +42,44 @@ namespace Backend.Services
                 if (overlappingSchedule)
                     return ServiceResult<DoctorSchedule>.ErrorResult("Schedule overlaps with existing schedule", "SCHEDULE_OVERLAP");
 
+                // Create a new DoctorSchedule without the Doctor navigation property
+                var newSchedule = new DoctorSchedule
+                {
+                    DoctorId = schedule.DoctorId,
+                    DayOfWeek = schedule.DayOfWeek,
+                    StartTime = schedule.StartTime,
+                    EndTime = schedule.EndTime,
+                    IsAvailable = schedule.IsAvailable,
+                    Notes = schedule.Notes
+                };
+
                 if (schedule.Id == 0)
                 {
-                    _context.DoctorSchedules.Add(schedule);
+                    _context.DoctorSchedules.Add(newSchedule);
                 }
                 else
                 {
-                    _context.DoctorSchedules.Update(schedule);
+                    newSchedule.Id = schedule.Id;
+                    _context.DoctorSchedules.Update(newSchedule);
                 }
 
                 await _context.SaveChangesAsync();
-                return ServiceResult<DoctorSchedule>.SuccessResult(schedule);
+                Console.WriteLine($"Schedule saved successfully: {newSchedule}");
+                return ServiceResult<DoctorSchedule>.SuccessResult(new DoctorSchedule
+                {
+                    Id = newSchedule.Id,
+                    DoctorId = newSchedule.DoctorId,
+                    DayOfWeek = newSchedule.DayOfWeek,
+                    StartTime = newSchedule.StartTime,
+                    EndTime = newSchedule.EndTime,
+                    IsAvailable = newSchedule.IsAvailable,
+                    Notes = newSchedule.Notes
+                });
             }
             catch (Exception ex)
             {
                 return ServiceResult<DoctorSchedule>.ErrorResult(
-                    "An error occurred while setting schedule",
+                    $"An error occurred while setting schedule: {ex.Message}",
                     "SCHEDULE_SET_ERROR");
             }
         }

@@ -11,18 +11,22 @@ using Backend.Repositories;
 using Backend.Utils;
 using Npgsql;
 using Dapper;
-using Backend.Middleware;
-
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure logging
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
+builder.Logging.SetMinimumLevel(LogLevel.Debug);
 
 // 設定 CORS 規則
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins("http://localhost:3000")  // 允許 React 本地開發環境
-            .AllowAnyHeader()
-            .AllowAnyMethod();
+        policy.WithOrigins("http://localhost:5173")  // Vite development server
+              .AllowAnyHeader()
+              .AllowAnyMethod();
     });
 });
 
@@ -30,10 +34,27 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 
 // Configure DbContext
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrEmpty(connectionString))
+{
+    throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+}
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    options.UseNpgsql(connectionString, npgsqlOptions =>
+    {
+        npgsqlOptions.EnableRetryOnFailure();
+    });
+});
 
 // Configure JWT Authentication
+var jwtKey = builder.Configuration["Jwt:Key"];
+if (string.IsNullOrEmpty(jwtKey))
+{
+    throw new InvalidOperationException("JWT Key not found in configuration.");
+}
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -45,7 +66,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
         };
     });
 
@@ -101,18 +122,19 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.UseDeveloperExceptionPage();
+}
+else
+{
+    app.UseExceptionHandler("/error");
 }
 
 // 在 app.Run(); 之前呼叫：
 SqlMapper.AddTypeHandler(new DateOnlyTypeHandler());
-// SqlMapper.AddTypeHandler(new TimeOnlyTypeHandler()); // 雖然不用 TimeOnly，但預備可以加
-SqlMapper.AddTypeHandler(new TimeSpanHandler());     // 必要
+SqlMapper.AddTypeHandler(new TimeSpanHandler());
 
 // 加這行來啟用 CORS
 app.UseCors();
-
-// 添加全局異常處理中間件
-app.UseMiddleware<ExceptionMiddleware>();
 
 app.UseHttpsRedirection();
 
@@ -120,5 +142,15 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Add a catch-all error route
+app.Map("/error", () => Results.Problem(
+    statusCode: StatusCodes.Status500InternalServerError,
+    title: "An error occurred while processing your request.",
+    detail: "Please try again later."
+));
+
+// Configure the URLs
+app.Urls.Add("http://localhost:5000");
 
 app.Run();

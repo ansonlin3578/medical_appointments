@@ -27,10 +27,10 @@ namespace Backend.Models
         public string LastName { get; set; }
 
         [StringLength(20)]
-        public string Phone { get; set; }
+        public string? Phone { get; set; }
 
         [StringLength(200)]
-        public string Address { get; set; }
+        public string? Address { get; set; }
 
         [Required]
         public string Role { get; set; } // "Patient" or "Hospital"

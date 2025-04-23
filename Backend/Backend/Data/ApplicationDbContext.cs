@@ -42,7 +42,7 @@ namespace Backend.Data
             // 一個排班必須對應一個醫生（User表中Role為Hospital的用戶）
             // 當醫生被刪除時，其排班記錄也會被刪除
             modelBuilder.Entity<DoctorSchedule>()
-                .HasOne(ds => ds.Doctor)
+                .HasOne<User>()
                 .WithMany()
                 .HasForeignKey(ds => ds.DoctorId)
                 .OnDelete(DeleteBehavior.Cascade);
@@ -69,7 +69,7 @@ namespace Backend.Data
             // 當醫生被刪除時，其所有排班記錄也會被刪除
             modelBuilder.Entity<User>()
                 .HasMany(u => u.DoctorSchedules)
-                .WithOne(ds => ds.Doctor)
+                .WithOne()
                 .HasForeignKey(ds => ds.DoctorId)
                 .OnDelete(DeleteBehavior.Cascade);
 

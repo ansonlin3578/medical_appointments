@@ -8,7 +8,6 @@ namespace Backend.Models
         
         [Required]
         public int DoctorId { get; set; }
-        public User Doctor { get; set; }
         
         [Required]
         public DayOfWeek DayOfWeek { get; set; }
@@ -22,6 +21,6 @@ namespace Backend.Models
         [Required]
         public bool IsAvailable { get; set; }
         
-        public string Notes { get; set; }
+        public string Notes { get; set; } = string.Empty;
     }
 } 

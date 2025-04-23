@@ -7,7 +7,7 @@ using Backend.Services;
 namespace Backend.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/auth")]
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
@@ -24,7 +24,9 @@ namespace Backend.Controllers
             {
                 Username = request.Username,
                 Email = request.Email,
-                Role = request.Role
+                Role = request.Role,
+                FirstName = request.FirstName,
+                LastName = request.LastName
             };
 
             var result = await _authService.Register(user, request.Password);
@@ -81,15 +83,17 @@ namespace Backend.Controllers
 
     public class RegisterRequest
     {
-        public string Username { get; set; }
-        public string Email { get; set; }
-        public string Password { get; set; }
-        public string Role { get; set; }
+        public required string Username { get; set; }
+        public required string Email { get; set; }
+        public required string Password { get; set; }
+        public required string Role { get; set; }
+        public required string FirstName { get; set; }
+        public required string LastName { get; set; }
     }
 
     public class LoginRequest
     {
-        public string Username { get; set; }
-        public string Password { get; set; }
+        public required string Username { get; set; }
+        public required string Password { get; set; }
     }
 } 
