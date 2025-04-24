@@ -68,12 +68,30 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
         };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogError($"Authentication failed: {context.Exception.Message}");
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogInformation($"Token validated. Claims: {string.Join(", ", context.Principal.Claims.Select(c => $"{c.Type}: {c.Value}"))}");
+                return Task.CompletedTask;
+            }
+        };
     });
 
 // Add services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAppointmentService, AppointmentService>();
 builder.Services.AddScoped<IDoctorService, DoctorService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IPatientService, PatientService>();
 
 // Configure Swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -137,6 +155,24 @@ SqlMapper.AddTypeHandler(new TimeSpanHandler());
 app.UseCors();
 
 app.UseHttpsRedirection();
+
+// Add request logging middleware after CORS and HTTPS redirection
+app.Use(async (context, next) =>
+{
+    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+    logger.LogInformation($"Request: {context.Request.Method} {context.Request.Path}");
+    logger.LogDebug($"Headers: {string.Join(", ", context.Request.Headers.Select(h => $"{h.Key}: {h.Value}"))}");
+    await next();
+});
+
+// Add authentication and authorization logging before authentication
+app.Use(async (context, next) =>
+{
+    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+    logger.LogDebug($"User authenticated: {context.User.Identity?.IsAuthenticated}");
+    logger.LogDebug($"User claims: {string.Join(", ", context.User.Claims.Select(c => $"{c.Type}: {c.Value}"))}");
+    await next();
+});
 
 app.UseAuthentication();
 app.UseAuthorization();

@@ -26,18 +26,16 @@ namespace Backend.Models
         [StringLength(50)]
         public string LastName { get; set; }
 
-        [StringLength(20)]
+        [Phone]
         public string? Phone { get; set; }
 
         [StringLength(200)]
         public string? Address { get; set; }
 
         [Required]
-        public string Role { get; set; } // "Patient" or "Hospital"
+        public string Role { get; set; } // "patient", "doctor", or "admin"
 
         // 導航屬性
-        public ICollection<Appointment> DoctorAppointments { get; set; }
-        public ICollection<Appointment> PatientAppointments { get; set; }
         public ICollection<DoctorSchedule> DoctorSchedules { get; set; }
         public ICollection<DoctorSpecialty> DoctorSpecialties { get; set; }
 

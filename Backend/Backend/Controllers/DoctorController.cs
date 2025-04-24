@@ -4,12 +4,13 @@ using Backend.Services;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Authorization;
+using Backend.Constants;
 
 namespace Backend.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Doctor,Admin")]
+    [Authorize(Roles = $"{Roles.Doctor},{Roles.Admin},{Roles.Patient}")]
     public class DoctorController : ControllerBase
     {
         private readonly IDoctorService _doctorService;
@@ -71,11 +72,22 @@ namespace Backend.Controllers
 
         [HttpGet("available-time-slots/{doctorId}")]
         public async Task<IActionResult> GetAvailableTimeSlots(int doctorId, [FromQuery] DateTime date)
-        {
-            var result = await _doctorService.GetAvailableTimeSlots(doctorId, date);
+        {   
+            Console.WriteLine($"GetAvailableTimeSlots called with doctorId: {doctorId}, date: {date}");
+            
+            // Ensure the date is in UTC format
+            var utcDate = date.Kind == DateTimeKind.Unspecified 
+                ? DateTime.SpecifyKind(date, DateTimeKind.Utc)
+                : date.ToUniversalTime();
+            
+            var result = await _doctorService.GetAvailableTimeSlots(doctorId, utcDate);
             if (!result.Success)
+            {
+                Console.WriteLine($"Error in GetAvailableTimeSlots: {result.ErrorMessage}");
                 return BadRequest(result.ErrorMessage);
+            }
 
+            Console.WriteLine($"Successfully retrieved {result.Data?.Count() ?? 0} time slots");
             return Ok(result.Data);
         }
 

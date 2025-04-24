@@ -7,6 +7,7 @@ using Backend.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.Logging;
+using Backend.Constants;
 
 namespace Backend.Services
 {
@@ -46,6 +47,22 @@ namespace Backend.Services
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation("User {Username} registered successfully", user.Username);
+
+                if (user.Role.ToLower() == "patient")
+                {
+                    var patient = new Patient
+                    {
+                        UserId = user.Id,
+                        Name = $"{user.FirstName} {user.LastName}",
+                        Phone = user.Phone,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+
+                    _context.Patients.Add(patient);
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation("Patient record created for user {Username}", user.Username);
+                }
 
                 var token = GenerateJwtToken(user);
                 return ServiceResult<string>.SuccessResult(token);
@@ -106,11 +123,20 @@ namespace Backend.Services
 
         private string GenerateJwtToken(User user)
         {
+            // Normalize the role to match the expected case
+            string normalizedRole = user.Role.ToLower() switch
+            {
+                "patient" => "Patient",
+                "doctor" => "Doctor",
+                "admin" => "Admin",
+                _ => user.Role
+            };
+
             var claims = new[]
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.Role, user.Role)
+                new Claim(ClaimTypes.Role, normalizedRole)
             };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));

@@ -26,15 +26,12 @@ public class AppointmentsRepository : IAppointmentsRepository
     public async Task<Appointment> GetByIdAsync(int id)
     {
         return await _context.Appointments
-            .Include(a => a.Patient)
-            .Include(a => a.Doctor)
             .FirstOrDefaultAsync(a => a.Id == id);
     }
 
     public async Task<IEnumerable<Appointment>> GetByPatientIdAsync(int patientId)
     {
         return await _context.Appointments
-            .Include(a => a.Doctor)
             .Where(a => a.PatientId == patientId)
             .ToListAsync();
     }
@@ -42,7 +39,6 @@ public class AppointmentsRepository : IAppointmentsRepository
     public async Task<IEnumerable<Appointment>> GetByDoctorIdAsync(int doctorId)
     {
         return await _context.Appointments
-            .Include(a => a.Patient)
             .Where(a => a.DoctorId == doctorId)
             .ToListAsync();
     }

@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Backend.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250421160645_RemoveDoctorsTable")]
-    partial class RemoveDoctorsTable
+    [Migration("20250424150857_CleanAppointmentSchema")]
+    partial class CleanAppointmentSchema
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -58,51 +58,13 @@ namespace Backend.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int?>("UserId")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("UserId1")
-                        .HasColumnType("integer");
-
                     b.HasKey("Id");
 
                     b.HasIndex("DoctorId");
 
                     b.HasIndex("PatientId");
 
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("UserId1");
-
                     b.ToTable("Appointments");
-                });
-
-            modelBuilder.Entity("Backend.Models.Doctor", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("Specialty")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Doctor");
                 });
 
             modelBuilder.Entity("Backend.Models.DoctorSchedule", b =>
@@ -178,14 +140,13 @@ namespace Backend.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("BirthDate")
+                    b.Property<DateTime?>("BirthDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("MedicalHistory")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Name")
@@ -194,7 +155,6 @@ namespace Backend.Migrations
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("Phone")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -219,7 +179,6 @@ namespace Backend.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Address")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
@@ -246,9 +205,7 @@ namespace Backend.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Phone")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Role")
                         .IsRequired()
@@ -275,40 +232,26 @@ namespace Backend.Migrations
 
             modelBuilder.Entity("Backend.Models.Appointment", b =>
                 {
-                    b.HasOne("Backend.Models.Doctor", "Doctor")
+                    b.HasOne("Backend.Models.User", null)
                         .WithMany()
                         .HasForeignKey("DoctorId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Backend.Models.Patient", "Patient")
+                    b.HasOne("Backend.Models.User", null)
                         .WithMany()
                         .HasForeignKey("PatientId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.HasOne("Backend.Models.User", null)
-                        .WithMany("DoctorAppointments")
-                        .HasForeignKey("UserId");
-
-                    b.HasOne("Backend.Models.User", null)
-                        .WithMany("PatientAppointments")
-                        .HasForeignKey("UserId1");
-
-                    b.Navigation("Doctor");
-
-                    b.Navigation("Patient");
                 });
 
             modelBuilder.Entity("Backend.Models.DoctorSchedule", b =>
                 {
-                    b.HasOne("Backend.Models.User", "Doctor")
+                    b.HasOne("Backend.Models.User", null)
                         .WithMany("DoctorSchedules")
                         .HasForeignKey("DoctorId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Doctor");
                 });
 
             modelBuilder.Entity("Backend.Models.DoctorSpecialty", b =>
@@ -335,13 +278,9 @@ namespace Backend.Migrations
 
             modelBuilder.Entity("Backend.Models.User", b =>
                 {
-                    b.Navigation("DoctorAppointments");
-
                     b.Navigation("DoctorSchedules");
 
                     b.Navigation("DoctorSpecialties");
-
-                    b.Navigation("PatientAppointments");
                 });
 #pragma warning restore 612, 618
         }

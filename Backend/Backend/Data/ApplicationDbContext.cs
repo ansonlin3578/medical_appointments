@@ -50,15 +50,16 @@ namespace Backend.Data
             // 設定 Appointment 和 Patient 的關聯
             // 一個預約必須對應一個病人，當病人被刪除時，其預約記錄也會被刪除
             modelBuilder.Entity<Appointment>()
-                .HasOne(a => a.Patient)
+                .HasOne<User>()
                 .WithMany()
                 .HasForeignKey(a => a.PatientId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             // 設定 Appointment 和 Doctor 的關聯
-            // 一個預約必須對應一個醫生，當醫生被刪除時，其預約記錄也會被刪除
+            // 一個預約必須對應一個醫生（User表中Role為Doctor的用戶）
+            // 當醫生被刪除時，其預約記錄也會被刪除
             modelBuilder.Entity<Appointment>()
-                .HasOne(a => a.Doctor)
+                .HasOne<User>()
                 .WithMany()
                 .HasForeignKey(a => a.DoctorId)
                 .OnDelete(DeleteBehavior.Cascade);

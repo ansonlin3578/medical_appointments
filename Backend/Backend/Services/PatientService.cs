@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace Backend.Services
 {
@@ -12,11 +13,13 @@ namespace Backend.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly IAppointmentService _appointmentService;
+        private readonly ILogger<PatientService> _logger;
 
-        public PatientService(ApplicationDbContext context, IAppointmentService appointmentService)
+        public PatientService(ApplicationDbContext context, IAppointmentService appointmentService, ILogger<PatientService> logger)
         {
             _context = context;
             _appointmentService = appointmentService;
+            _logger = logger;
         }
 
         public async Task<ServiceResult<Patient>> CreatePatient(Patient patient)
@@ -94,24 +97,50 @@ namespace Backend.Services
             }
         }
 
-        public async Task<ServiceResult<IEnumerable<Appointment>>> GetPatientAppointments(int patientId)
+        public async Task<ServiceResult<IEnumerable<Appointment>>> GetPatientAppointments(int userId)
         {
             try
-            {
+            {   
+                _logger.LogInformation($"GetPatientAppointments called with userId: {userId}");
+                
+                // 首先檢查患者是否存在
+                var patient = await _context.Patients
+                    .Include(p => p.User)
+                    .FirstOrDefaultAsync(p => p.UserId == userId);
+                if (patient == null)
+                {
+                    _logger.LogWarning($"Patient with UserId {userId} not found");
+                    return ServiceResult<IEnumerable<Appointment>>.ErrorResult("Patient not found", "PATIENT_NOT_FOUND");
+                }
+                _logger.LogInformation($"Found patient: {patient.Name}");
+
                 var appointments = await _context.Appointments
-                    .Include(a => a.Doctor)
-                    .Where(a => a.PatientId == patientId)
+                    .Where(a => a.PatientId == userId)
                     .OrderByDescending(a => a.AppointmentDate)
                     .ThenBy(a => a.StartTime)
+                    .Select(a => new Appointment
+                    {
+                        Id = a.Id,
+                        PatientId = a.PatientId,
+                        DoctorId = a.DoctorId,
+                        AppointmentDate = a.AppointmentDate,
+                        StartTime = a.StartTime,
+                        EndTime = a.EndTime,
+                        Status = a.Status,
+                        CreatedAt = a.CreatedAt,
+                        UpdatedAt = a.UpdatedAt
+                    })
                     .ToListAsync();
-
+                
+                _logger.LogInformation($"Found {appointments.Count} appointments for patient {patient.Id}");
                 return ServiceResult<IEnumerable<Appointment>>.SuccessResult(appointments);
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, $"Error in GetPatientAppointments: {ex.Message}");
                 return ServiceResult<IEnumerable<Appointment>>.ErrorResult(
                     "An error occurred while retrieving patient appointments",
-                    "APPOINTMENTS_RETRIEVAL_ERROR");
+                    "PATIENT_APPOINTMENTS_RETRIEVAL_ERROR");
             }
         }
 
@@ -201,6 +230,43 @@ namespace Backend.Services
                     "An error occurred while checking appointment conflict",
                     "CONFLICT_CHECK_ERROR");
             }
+        }
+
+        public async Task<ServiceResult<IEnumerable<User>>> GetAllDoctors()
+        {
+            try
+            {
+                var doctors = await _context.Users
+                    .Where(u => u.Role == "Doctor")
+                    .ToListAsync();
+
+                return ServiceResult<IEnumerable<User>>.SuccessResult(doctors);
+            }
+            catch (Exception ex)
+            {
+                return ServiceResult<IEnumerable<User>>.ErrorResult($"Error retrieving doctors: {ex.Message}");
+            }
+        }
+
+        public async Task<Patient> GetPatientByUserId(int userId)
+        {
+            return await _context.Patients.FirstOrDefaultAsync(p => p.UserId == userId);
+        }
+
+        public async Task<Patient> CreatePatientFromUser(User user)
+        {
+            var patient = new Patient
+            {
+                UserId = user.Id,
+                Name = $"{user.FirstName} {user.LastName}",
+                Phone = user.Phone,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _context.Patients.Add(patient);
+            await _context.SaveChangesAsync();
+            return patient;
         }
     }
 } 

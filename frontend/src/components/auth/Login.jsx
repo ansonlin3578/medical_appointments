@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Form, Button, Card, Container, Alert, Row, Col } from 'react-bootstrap';
 import { useAuth } from '../../context/AuthContext';
+import Roles from '../../constants/roles';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -17,9 +18,26 @@ const Login = () => {
     setLoading(true);
 
     try {
-      await login(username, password);
-      navigate('/doctor-dashboard');
+      const userData = await login(username, password);
+      console.log('Login response:', userData);
+      console.log('User role:', userData.role);
+      console.log('Roles.PATIENT:', Roles.PATIENT);
+
+      // Convert role to proper case for comparison
+      const normalizedRole = userData.role.charAt(0).toUpperCase() + userData.role.slice(1).toLowerCase();
+
+      // Redirect based on user role
+      if (normalizedRole === Roles.DOCTOR) {
+        navigate('/doctor-dashboard');
+      } else if (normalizedRole === Roles.PATIENT) {
+        navigate('/patient-dashboard');
+      } else if (normalizedRole === Roles.ADMIN) {
+        navigate('/admin-dashboard');
+      } else {
+        setError(`Invalid user role: ${userData.role}`);
+      }
     } catch (err) {
+      console.error('Login error:', err);
       setError('Failed to log in. Please check your credentials.');
     } finally {
       setLoading(false);

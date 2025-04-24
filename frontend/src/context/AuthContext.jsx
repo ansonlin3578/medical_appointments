@@ -13,6 +13,7 @@ export const AuthProvider = ({ children }) => {
         const token = localStorage.getItem('token');
         if (token) {
           const userData = await authService.getCurrentUser();
+          console.log('Auth check - User data:', userData);
           setUser(userData);
         }
       } catch (error) {
@@ -27,28 +28,42 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (username, password) => {
-    setLoading(true);
     try {
       const response = await authService.login(username, password);
-      localStorage.setItem('token', response.token);
-      const userData = await authService.getCurrentUser();
-      setUser(userData);
-      return userData;
-    } finally {
-      setLoading(false);
+      console.log('Login response:', response);
+      
+      if (response && response.token) {
+        localStorage.setItem('token', response.token);
+        const userData = await authService.getCurrentUser();
+        console.log('Current user data:', userData);
+        
+        if (!userData || !userData.role) {
+          throw new Error('Invalid user data received from server');
+        }
+        
+        setUser(userData);
+        return userData;
+      }
+      throw new Error('Invalid response from server');
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
     }
   };
 
   const register = async (username, email, password, role, firstName, lastName) => {
-    setLoading(true);
     try {
       const response = await authService.register(username, email, password, role, firstName, lastName);
-      localStorage.setItem('token', response.token);
-      const userData = await authService.getCurrentUser();
-      setUser(userData);
-      return userData;
-    } finally {
-      setLoading(false);
+      if (response && response.token) {
+        localStorage.setItem('token', response.token);
+        const userData = await authService.getCurrentUser();
+        setUser(userData);
+        return userData;
+      }
+      throw new Error('Invalid response from server');
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
     }
   };
 

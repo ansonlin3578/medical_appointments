@@ -1,11 +1,12 @@
 import axios from 'axios';
+import authService from './authService';
 
 const API_URL = 'http://localhost:5000/api';
 
 const timeSlotService = {
   async getDoctorTimeSlots(doctorId) {
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       const response = await axios.get(`${API_URL}/doctor/available-time-slots/${doctorId}`, {
         headers: {
           Authorization: `Bearer ${token}`
@@ -20,7 +21,7 @@ const timeSlotService = {
 
   async getDoctorSchedules(doctorId) {
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       const response = await axios.get(`${API_URL}/doctor/schedules/${doctorId}`, {
         headers: {
           Authorization: `Bearer ${token}`
@@ -35,7 +36,7 @@ const timeSlotService = {
 
   async createTimeSlot(timeSlotData) {
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       const schedule = {
         doctorId: timeSlotData.doctorId,
         dayOfWeek: timeSlotData.dayOfWeek,
@@ -60,7 +61,7 @@ const timeSlotService = {
 
   async deleteTimeSlot(slotId) {
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       await axios.delete(`${API_URL}/doctor/schedule/${slotId}`, {
         headers: {
           Authorization: `Bearer ${token}`

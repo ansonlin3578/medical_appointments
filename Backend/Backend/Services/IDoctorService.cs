@@ -1,4 +1,5 @@
 using Backend.Models;
+using Backend.Utils;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -26,6 +27,6 @@ namespace Backend.Services
         Task<ServiceResult<IEnumerable<User>>> GetAvailableDoctors(DateTime date, TimeSpan time);
 
         Task<ServiceResult<IEnumerable<Appointment>>> GetDoctorAppointments(int doctorId);
-        Task<ServiceResult<IEnumerable<DoctorSchedule>>> GetAvailableTimeSlots(int doctorId, DateTime date);
+        Task<ServiceResult<IEnumerable<TimeSlot>>> GetAvailableTimeSlots(int doctorId, DateTime date);
     }
 } 

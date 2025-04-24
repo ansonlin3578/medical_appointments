@@ -5,16 +5,21 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Backend.Utils;
+using Backend.Constants;
 
 namespace Backend.Services
 {
     public class DoctorService : IDoctorService
     {
         private readonly ApplicationDbContext _context;
+        private readonly ILogger<DoctorService> _logger;
 
-        public DoctorService(ApplicationDbContext context)
+        public DoctorService(ApplicationDbContext context, ILogger<DoctorService> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
         public async Task<ServiceResult<DoctorSchedule>> SetSchedule(DoctorSchedule schedule)
@@ -23,7 +28,7 @@ namespace Backend.Services
             {
                 // 檢查醫生是否存在
                 var doctor = await _context.Users.FindAsync(schedule.DoctorId);
-                if (doctor == null || doctor.Role != "Doctor")
+                if (doctor == null || doctor.Role != Roles.Doctor)
                     return ServiceResult<DoctorSchedule>.ErrorResult("Doctor not found", "DOCTOR_NOT_FOUND");
 
                 // 檢查時間是否有效
@@ -64,7 +69,6 @@ namespace Backend.Services
                 }
 
                 await _context.SaveChangesAsync();
-                Console.WriteLine($"Schedule saved successfully: {newSchedule}");
                 return ServiceResult<DoctorSchedule>.SuccessResult(new DoctorSchedule
                 {
                     Id = newSchedule.Id,
@@ -131,7 +135,7 @@ namespace Backend.Services
             {
                 // 檢查醫生是否存在
                 var doctor = await _context.Users.FindAsync(specialty.DoctorId);
-                if (doctor == null || doctor.Role != "Doctor")
+                if (doctor == null || doctor.Role != Roles.Doctor)
                     return ServiceResult<DoctorSpecialty>.ErrorResult("Doctor not found", "DOCTOR_NOT_FOUND");
 
                 _context.DoctorSpecialties.Add(specialty);
@@ -192,7 +196,7 @@ namespace Backend.Services
             try
             {
                 var doctor = await _context.Users
-                    .FirstOrDefaultAsync(u => u.Id == doctorId && u.Role == "Doctor");
+                    .FirstOrDefaultAsync(u => u.Id == doctorId && u.Role == Roles.Doctor);
 
                 if (doctor == null)
                     return ServiceResult<User>.ErrorResult("Doctor not found", "DOCTOR_NOT_FOUND");
@@ -212,7 +216,7 @@ namespace Backend.Services
             try
             {
                 var existingDoctor = await _context.Users.FindAsync(doctorId);
-                if (existingDoctor == null || existingDoctor.Role != "Doctor")
+                if (existingDoctor == null || existingDoctor.Role != Roles.Doctor)
                     return ServiceResult<User>.ErrorResult("Doctor not found", "DOCTOR_NOT_FOUND");
 
                 // 更新醫生信息
@@ -237,7 +241,7 @@ namespace Backend.Services
             try
             {
                 var query = _context.Users
-                    .Where(u => u.Role == "Doctor")
+                    .Where(u => u.Role == Roles.Doctor)
                     .Include(u => u.DoctorSpecialties)
                     .AsQueryable();
 
@@ -268,7 +272,7 @@ namespace Backend.Services
             {
                 var dayOfWeek = date.DayOfWeek;
                 var availableDoctors = await _context.Users
-                    .Where(u => u.Role == "Doctor")
+                    .Where(u => u.Role == Roles.Doctor)
                     .Include(u => u.DoctorSchedules)
                     .Where(u => u.DoctorSchedules.Any(ds => 
                         ds.DayOfWeek == dayOfWeek &&
@@ -292,7 +296,6 @@ namespace Backend.Services
             try
             {
                 var appointments = await _context.Appointments
-                    .Include(a => a.Patient)
                     .Where(a => a.DoctorId == doctorId)
                     .OrderByDescending(a => a.AppointmentDate)
                     .ThenBy(a => a.StartTime)
@@ -302,46 +305,77 @@ namespace Backend.Services
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error retrieving doctor appointments");
                 return ServiceResult<IEnumerable<Appointment>>.ErrorResult(
                     "An error occurred while retrieving doctor appointments",
                     "APPOINTMENTS_RETRIEVAL_ERROR");
             }
         }
 
-        public async Task<ServiceResult<IEnumerable<DoctorSchedule>>> GetAvailableTimeSlots(int doctorId, DateTime date)
+        public async Task<ServiceResult<IEnumerable<TimeSlot>>> GetAvailableTimeSlots(int doctorId, DateTime date)
         {
             try
             {
-                var dayOfWeek = date.DayOfWeek;
+                _logger.LogInformation($"GetAvailableTimeSlots called with doctorId: {doctorId}, date: {date}");
+
+                // First check if the doctor exists
+                var doctor = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Id == doctorId && u.Role == Roles.Doctor);
+
+                if (doctor == null)
+                {
+                    _logger.LogError($"Doctor not found with ID: {doctorId}");
+                    return ServiceResult<IEnumerable<TimeSlot>>.ErrorResult("Doctor not found", "DOCTOR_NOT_FOUND");
+                }
+
+                // Get the doctor's schedules for the given day
                 var schedules = await _context.DoctorSchedules
-                    .Where(ds => ds.DoctorId == doctorId && 
-                                ds.DayOfWeek == dayOfWeek && 
-                                ds.IsAvailable)
-                    .OrderBy(ds => ds.StartTime)
+                    .Where(s => s.DoctorId == doctorId && s.DayOfWeek == date.DayOfWeek)
                     .ToListAsync();
 
-                // 獲取已預約的時間段
+                if (!schedules.Any())
+                {
+                    _logger.LogWarning($"No schedule found for doctor {doctorId} on {date.DayOfWeek}");
+                    return ServiceResult<IEnumerable<TimeSlot>>.ErrorResult("No schedule found for this day", "NO_SCHEDULE");
+                }
+
+                // Get existing appointments for the day
                 var appointments = await _context.Appointments
-                    .Where(a => a.DoctorId == doctorId && 
-                               a.AppointmentDate.Date == date.Date && 
-                               a.Status != "Cancelled")
+                    .Where(a => a.DoctorId == doctorId && a.AppointmentDate.Date == date.Date)
                     .Select(a => new { a.StartTime, a.EndTime })
                     .ToListAsync();
 
-                // 過濾掉已預約的時間段
-                var availableSlots = schedules.Where(schedule =>
-                    !appointments.Any(appointment =>
-                        (schedule.StartTime >= appointment.StartTime && schedule.StartTime < appointment.EndTime) ||
-                        (schedule.EndTime > appointment.StartTime && schedule.EndTime <= appointment.EndTime) ||
-                        (schedule.StartTime <= appointment.StartTime && schedule.EndTime >= appointment.EndTime)
-                    )
-                ).ToList();
+                var timeSlots = new List<TimeSlot>();
+                foreach (var schedule in schedules)
+                {
+                    var currentTime = schedule.StartTime;
+                    var endTime = schedule.EndTime;
 
-                return ServiceResult<IEnumerable<DoctorSchedule>>.SuccessResult(availableSlots);
+                    while (currentTime < endTime)
+                    {
+                        var slotEndTime = currentTime.Add(TimeSpan.FromMinutes(30));
+                        var isAvailable = !appointments.Any(a =>
+                            (a.StartTime <= currentTime && a.EndTime > currentTime) ||
+                            (a.StartTime < slotEndTime && a.EndTime >= slotEndTime) ||
+                            (a.StartTime >= currentTime && a.EndTime <= slotEndTime));
+
+                        timeSlots.Add(new TimeSlot
+                        {
+                            Time = currentTime,
+                            IsAvailable = isAvailable && schedule.IsAvailable
+                        });
+
+                        currentTime = slotEndTime;
+                    }
+                }
+
+                _logger.LogInformation($"Generated {timeSlots.Count} time slots for doctor {doctorId} on {date}");
+                return ServiceResult<IEnumerable<TimeSlot>>.SuccessResult(timeSlots);
             }
             catch (Exception ex)
             {
-                return ServiceResult<IEnumerable<DoctorSchedule>>.ErrorResult(
+                _logger.LogError(ex, $"Error in GetAvailableTimeSlots for doctor {doctorId} on {date}");
+                return ServiceResult<IEnumerable<TimeSlot>>.ErrorResult(
                     "An error occurred while retrieving available time slots",
                     "TIME_SLOTS_RETRIEVAL_ERROR");
             }

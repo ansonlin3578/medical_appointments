@@ -14,5 +14,8 @@ namespace Backend.Services
         Task<ServiceResult<bool>> CancelAppointment(int appointmentId);
         Task<ServiceResult<IEnumerable<DoctorSchedule>>> GetAvailableTimeSlots(int doctorId, DateTime date);
         Task<ServiceResult<bool>> CheckAppointmentConflict(int patientId, DateTime date, TimeSpan startTime, TimeSpan endTime);
+        Task<ServiceResult<IEnumerable<User>>> GetAllDoctors();
+        Task<Patient> GetPatientByUserId(int userId);
+        Task<Patient> CreatePatientFromUser(User user);
     }
 } 

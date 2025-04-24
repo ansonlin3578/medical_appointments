@@ -15,14 +15,12 @@ namespace Backend.Models
         [StringLength(100)]
         public string Name { get; set; }
 
-        [Required]
         [Phone]
-        public string Phone { get; set; }
+        public string? Phone { get; set; }
 
-        [Required]
-        public DateTime BirthDate { get; set; }
+        public DateTime? BirthDate { get; set; }
 
-        public string MedicalHistory { get; set; }
+        public string? MedicalHistory { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

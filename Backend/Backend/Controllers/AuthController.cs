@@ -58,7 +58,10 @@ namespace Backend.Controllers
                 };
             }
 
-            return Ok(new { Token = result.Data });
+            return Ok(new { 
+                token = result.Data,
+                message = "Login successful"
+            });
         }
 
         [Authorize]

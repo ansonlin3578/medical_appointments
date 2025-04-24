@@ -5,6 +5,9 @@ import { useAuth } from './context/AuthContext';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import DoctorDashboard from './components/dashboard/DoctorDashboard';
+import PatientDashboard from './components/dashboard/PatientDashboard';
+import AdminDashboard from './components/dashboard/AdminDashboard';
+import Roles from './constants/roles';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 const PrivateRoute = ({ children, requiredRole }) => {
@@ -24,7 +27,12 @@ const PrivateRoute = ({ children, requiredRole }) => {
     return <Navigate to="/login" />;
   }
 
-  if (requiredRole && user.role !== requiredRole) {
+  // Convert both roles to lowercase for case-insensitive comparison
+  const userRole = user.role?.toLowerCase();
+  const requiredRoleLower = requiredRole?.toLowerCase();
+
+  if (requiredRole && userRole !== requiredRoleLower) {
+    console.log('Role mismatch:', { userRole, requiredRoleLower });
     return <Navigate to="/" />;
   }
 
@@ -41,8 +49,24 @@ function App() {
           <Route
             path="/doctor-dashboard"
             element={
-              <PrivateRoute requiredRole="Doctor">
+              <PrivateRoute requiredRole={Roles.DOCTOR}>
                 <DoctorDashboard />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/patient-dashboard"
+            element={
+              <PrivateRoute requiredRole={Roles.PATIENT}>
+                <PatientDashboard />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/admin-dashboard"
+            element={
+              <PrivateRoute requiredRole={Roles.ADMIN}>
+                <AdminDashboard />
               </PrivateRoute>
             }
           />

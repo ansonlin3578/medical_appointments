@@ -11,6 +11,13 @@ const authService = {
         password
       });
       console.log('Login response:', response.data);
+      
+      // Store the token in localStorage
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        console.log('Token stored in localStorage');
+      }
+      
       return response.data;
     } catch (error) {
       console.error('Login error:', error.response?.data || error.message);
@@ -49,6 +56,10 @@ const authService = {
 
   logout() {
     localStorage.removeItem('token');
+  },
+
+  getToken() {
+    return localStorage.getItem('token');
   }
 };
 

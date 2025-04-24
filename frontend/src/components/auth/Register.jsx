@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { Form, Button, Card, Container, Alert, Row, Col } from 'react-bootstrap';
 import { useAuth } from '../../context/AuthContext';
+import Roles from '../../constants/roles';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -35,7 +37,19 @@ const Register = () => {
         formData.lastName
       );
       if (userData) {
-        navigate('/dashboard');
+        // Convert role to proper case for comparison
+        const normalizedRole = userData.role.charAt(0).toUpperCase() + userData.role.slice(1).toLowerCase();
+        
+        // Redirect based on user role
+        if (normalizedRole === Roles.DOCTOR) {
+          navigate('/doctor-dashboard');
+        } else if (normalizedRole === Roles.PATIENT) {
+          navigate('/patient-dashboard');
+        } else if (normalizedRole === Roles.ADMIN) {
+          navigate('/admin-dashboard');
+        } else {
+          setError(`Invalid user role: ${userData.role}`);
+        }
       }
     } catch (err) {
       setError(err.response?.data?.Message || 'Registration failed');
@@ -120,8 +134,9 @@ const Register = () => {
                 value={formData.role}
                 onChange={handleChange}
               >
-                <option value="Patient">Patient</option>
-                <option value="Doctor">Doctor</option>
+                <option value={Roles.PATIENT}>Patient</option>
+                <option value={Roles.DOCTOR}>Doctor</option>
+                <option value={Roles.ADMIN}>Admin</option>
               </select>
             </div>
             <div>
