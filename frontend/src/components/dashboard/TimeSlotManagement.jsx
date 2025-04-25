@@ -167,11 +167,17 @@ const TimeSlotManagement = ({ doctorId, onError, onSuccess }) => {
                 onChange={(e) => setEndTime(e.target.value)}
                 required
               >
-                {timeOptions.map((time) => (
-                  <option key={time} value={time}>
-                    {time}
-                  </option>
-                ))}
+                {timeOptions
+                  .filter(time => {
+                    const [startHour, startMinute] = startTime.split(':').map(Number);
+                    const [endHour, endMinute] = time.split(':').map(Number);
+                    return endHour > startHour || (endHour === startHour && endMinute > startMinute);
+                  })
+                  .map((time) => (
+                    <option key={time} value={time}>
+                      {time}
+                    </option>
+                  ))}
               </Form.Select>
             </Form.Group>
 

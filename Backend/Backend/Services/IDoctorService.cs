@@ -16,11 +16,13 @@ namespace Backend.Services
         // 專業領域管理
         Task<ServiceResult<DoctorSpecialty>> AddSpecialty(DoctorSpecialty specialty);
         Task<ServiceResult<IEnumerable<DoctorSpecialty>>> GetDoctorSpecialties(int doctorId);
+        Task<ServiceResult<DoctorSpecialty>> UpdateSpecialty(int specialtyId, DoctorSpecialty specialty);
         Task<ServiceResult<bool>> RemoveSpecialty(int specialtyId);
         
         // 醫生信息管理
-        Task<ServiceResult<User>> UpdateDoctorProfile(int doctorId, Doctor doctor);
+        Task<ServiceResult<User>> UpdateDoctorProfile(int doctorId, User doctor);
         Task<ServiceResult<User>> GetDoctorProfile(int doctorId);
+
         
         // 搜索和過濾
         Task<ServiceResult<IEnumerable<User>>> SearchDoctors(string specialty, string name);

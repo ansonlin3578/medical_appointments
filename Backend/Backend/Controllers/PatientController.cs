@@ -45,9 +45,9 @@ namespace Backend.Controllers
         }
 
         [HttpPut("profile/{id}")]
-        public async Task<IActionResult> UpdateProfile(int id, Patient patient)
+        public async Task<IActionResult> UpdateProfile(int id, UpdatePatientDto patientDto)
         {
-            var result = await _patientService.UpdatePatientProfile(id, patient);
+            var result = await _patientService.UpdatePatientProfile(id, patientDto);
             if (!result.Success)
                 return BadRequest(result.ErrorMessage);
 
@@ -89,16 +89,6 @@ namespace Backend.Controllers
                 _logger.LogError($"Exception in GetPatientAppointments: {ex.Message}");
                 return StatusCode(500, "An error occurred while processing your request");
             }
-        }
-
-        [HttpPost("appointments/cancel/{appointmentId}")]
-        public async Task<IActionResult> CancelAppointment(int appointmentId)
-        {
-            var result = await _patientService.CancelAppointment(appointmentId);
-            if (!result.Success)
-                return BadRequest(result.ErrorMessage);
-
-            return Ok(result.Data);
         }
 
         [HttpGet("available-time-slots/{doctorId}")]

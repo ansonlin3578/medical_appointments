@@ -63,6 +63,20 @@ namespace Backend.Services
                     await _context.SaveChangesAsync();
                     _logger.LogInformation("Patient record created for user {Username}", user.Username);
                 }
+                else if (user.Role.ToLower() == "doctor")
+                {
+                    var doctorSpecialty = new DoctorSpecialty
+                    {
+                        DoctorId = user.Id,
+                        Specialty = "General Medicine", // Default specialty
+                        Description = "General medical practice",
+                        YearsOfExperience = 0
+                    };
+
+                    _context.DoctorSpecialties.Add(doctorSpecialty);
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation("Doctor specialty record created for user {Username}", user.Username);
+                }
 
                 var token = GenerateJwtToken(user);
                 return ServiceResult<string>.SuccessResult(token);

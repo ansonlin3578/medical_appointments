@@ -8,7 +8,6 @@ namespace Backend.Models
         
         [Required]
         public int DoctorId { get; set; }
-        public User Doctor { get; set; }
         
         [Required]
         [StringLength(100)]

@@ -36,7 +36,7 @@ const PrivateRoute = ({ children, requiredRole }) => {
     return <Navigate to="/" />;
   }
 
-  return children;
+  return React.cloneElement(children, { user });
 };
 
 function App() {

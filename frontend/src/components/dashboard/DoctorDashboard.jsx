@@ -3,19 +3,25 @@ import { useAuth } from '../../context/AuthContext';
 import { Container, Row, Col, Card, Button, Alert } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import TimeSlotManagement from './TimeSlotManagement';
+import DoctorProfile from './DoctorProfile';
 
 const DoctorDashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [currentUser, setCurrentUser] = useState(user);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  if (!user || user.role !== 'Doctor') {
+  const handleUserUpdate = (updatedUser) => {
+    setCurrentUser(updatedUser);
+  };
+
+  if (!currentUser || currentUser.role !== 'Doctor') {
     return (
       <Container className="mt-5">
         <Alert variant="danger">Access denied. This page is for doctors only.</Alert>
@@ -24,11 +30,13 @@ const DoctorDashboard = () => {
   }
 
   return (
-    <Container className="mt-4">
-      <Row className="justify-content-between align-items-center">
+    <Container className="py-4">
+      {error && <Alert variant="danger">{error}</Alert>}
+      
+      <Row className="mb-4">
         <Col>
           <h2>Doctor Dashboard</h2>
-          <p>Welcome, Dr. {user.firstName} {user.lastName}</p>
+          <p className="text-muted">Welcome, {currentUser.username}</p>
         </Col>
         <Col xs="auto">
           <Button variant="outline-danger" onClick={handleLogout}>
@@ -36,17 +44,22 @@ const DoctorDashboard = () => {
           </Button>
         </Col>
       </Row>
-      
-      {error && (
-        <Row className="mt-3">
-          <Col>
-            <Alert variant="danger" onClose={() => setError(null)} dismissible>
-              {error}
-            </Alert>
-          </Col>
-        </Row>
-      )}
 
+      <Row className="mb-4">
+        <Col>
+          <DoctorProfile 
+            user={currentUser}
+            onUserUpdate={handleUserUpdate}
+          />
+        </Col>
+      </Row>
+
+      <Row className="justify-content-between align-items-center">
+        <Col>
+          <h4>Manage Your Available Time Slots</h4>
+        </Col>
+      </Row>
+      
       {success && (
         <Row className="mt-3">
           <Col>
@@ -65,7 +78,7 @@ const DoctorDashboard = () => {
             </Card.Header>
             <Card.Body>
               <TimeSlotManagement 
-                doctorId={user.id}
+                doctorId={currentUser.id}
                 onError={setError}
                 onSuccess={setSuccess}
               />

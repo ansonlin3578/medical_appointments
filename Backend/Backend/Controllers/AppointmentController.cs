@@ -42,8 +42,8 @@ namespace Backend.Controllers
 
             try
             {
-                // Ensure DateTime values are in UTC
-                appointment.AppointmentDate = appointment.AppointmentDate.ToUniversalTime();
+                // Ensure all DateTime values are in UTC
+                appointment.AppointmentDate = DateTime.SpecifyKind(appointment.AppointmentDate.Date, DateTimeKind.Utc);
                 appointment.CreatedAt = DateTime.UtcNow;
                 appointment.UpdatedAt = DateTime.UtcNow;
 
@@ -70,7 +70,7 @@ namespace Backend.Controllers
                         "TIME_SLOT_UNAVAILABLE" => BadRequest(new { Message = result.ErrorMessage }),
                         "DOCTOR_UNAVAILABLE" => BadRequest(new { Message = result.ErrorMessage }),
                         "APPOINTMENT_CREATION_ERROR" => StatusCode(500, new { Message = result.ErrorMessage }),
-                        _ => StatusCode(500, new { Message = "An unexpected error occurred" })
+                        _ => StatusCode(400, new { Message = "An unexpected error occurred" })
                     };
                 }
 

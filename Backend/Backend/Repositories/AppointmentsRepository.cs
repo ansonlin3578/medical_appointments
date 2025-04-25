@@ -66,8 +66,7 @@ public class AppointmentsRepository : IAppointmentsRepository
         return !await _context.Appointments
             .AnyAsync(a => a.DoctorId == doctorId &&
                          a.AppointmentDate.Date == date.Date &&
-                         ((a.StartTime <= startTime && a.EndTime > startTime) ||
-                          (a.StartTime < endTime && a.EndTime >= endTime) ||
-                          (a.StartTime >= startTime && a.EndTime <= endTime)));
+                         a.Status != "Cancelled" &&
+                         a.StartTime < endTime && a.EndTime > startTime);
     }
 }

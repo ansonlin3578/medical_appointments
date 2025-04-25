@@ -169,6 +169,30 @@ namespace Backend.Services
                     "SPECIALTIES_RETRIEVAL_ERROR");
             }
         }
+        
+        public async Task<ServiceResult<DoctorSpecialty>> UpdateSpecialty(int specialtyId, DoctorSpecialty specialty)
+        {
+            try
+            {
+                var existingSpecialty = await _context.DoctorSpecialties.FindAsync(specialtyId);
+                if (existingSpecialty == null)
+                    return ServiceResult<DoctorSpecialty>.ErrorResult("Specialty not found", "SPECIALTY_NOT_FOUND");
+
+                existingSpecialty.Specialty = specialty.Specialty;
+                existingSpecialty.Description = specialty.Description;
+                existingSpecialty.YearsOfExperience = specialty.YearsOfExperience;
+
+                await _context.SaveChangesAsync();
+
+                return ServiceResult<DoctorSpecialty>.SuccessResult(existingSpecialty);
+            }
+            catch (Exception ex)
+            {
+                return ServiceResult<DoctorSpecialty>.ErrorResult(
+                    "An error occurred while updating specialty",
+                    "SPECIALTY_UPDATE_ERROR");
+            }
+        }
 
         public async Task<ServiceResult<bool>> RemoveSpecialty(int specialtyId)
         {
@@ -211,7 +235,7 @@ namespace Backend.Services
             }
         }
 
-        public async Task<ServiceResult<User>> UpdateDoctorProfile(int doctorId, Doctor doctor)
+        public async Task<ServiceResult<User>> UpdateDoctorProfile(int doctorId, User doctor)
         {
             try
             {
@@ -220,8 +244,11 @@ namespace Backend.Services
                     return ServiceResult<User>.ErrorResult("Doctor not found", "DOCTOR_NOT_FOUND");
 
                 // 更新醫生信息
-                existingDoctor.FirstName = doctor.Name.Split(' ')[0];
-                existingDoctor.LastName = doctor.Name.Split(' ').Length > 1 ? doctor.Name.Split(' ')[1] : "";
+                existingDoctor.FirstName = doctor.FirstName;
+                existingDoctor.LastName = doctor.LastName;
+                existingDoctor.Email = doctor.Email;
+                existingDoctor.Phone = doctor.Phone;
+                existingDoctor.Address = doctor.Address;
                 existingDoctor.UpdatedAt = DateTime.UtcNow;
 
                 await _context.SaveChangesAsync();
@@ -340,10 +367,18 @@ namespace Backend.Services
                 }
 
                 // Get existing appointments for the day
+                var utcDate = new DateTime(date.Year, date.Month, date.Day, 0, 0, 0, DateTimeKind.Utc);
+                var nextDay = utcDate.AddDays(1);
+
                 var appointments = await _context.Appointments
-                    .Where(a => a.DoctorId == doctorId && a.AppointmentDate.Date == date.Date)
+                    .Where(a => a.DoctorId == doctorId && 
+                               a.AppointmentDate >= utcDate &&
+                               a.AppointmentDate < nextDay &&
+                               a.Status != "Cancelled")
                     .Select(a => new { a.StartTime, a.EndTime })
                     .ToListAsync();
+
+                _logger.LogInformation($"Found {appointments.Count} existing appointments for doctor {doctorId} on {date:yyyy-MM-dd} (UTC: {utcDate:yyyy-MM-dd})");
 
                 var timeSlots = new List<TimeSlot>();
                 foreach (var schedule in schedules)
@@ -355,9 +390,12 @@ namespace Backend.Services
                     {
                         var slotEndTime = currentTime.Add(TimeSpan.FromMinutes(30));
                         var isAvailable = !appointments.Any(a =>
-                            (a.StartTime <= currentTime && a.EndTime > currentTime) ||
-                            (a.StartTime < slotEndTime && a.EndTime >= slotEndTime) ||
-                            (a.StartTime >= currentTime && a.EndTime <= slotEndTime));
+                            // Check if the new slot overlaps with any existing appointment
+                            (currentTime >= a.StartTime && currentTime < a.EndTime) ||  // New slot starts during an existing appointment
+                            (slotEndTime > a.StartTime && slotEndTime <= a.EndTime) ||  // New slot ends during an existing appointment
+                            (currentTime <= a.StartTime && slotEndTime >= a.EndTime) ||  // New slot completely contains an existing appointment
+                            (currentTime < a.StartTime && slotEndTime > a.StartTime) ||  // New slot starts before and ends during an existing appointment
+                            (currentTime < a.EndTime && slotEndTime > a.EndTime));      // New slot starts during and ends after an existing appointment
 
                         timeSlots.Add(new TimeSlot
                         {

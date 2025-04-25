@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Authorization;
 using Backend.Constants;
+using Backend.Models.DTOs;
 
 namespace Backend.Controllers
 {
@@ -31,9 +32,23 @@ namespace Backend.Controllers
         }
 
         [HttpPut("profile/{id}")]
-        public async Task<IActionResult> UpdateProfile(int id, Doctor doctor)
+        public async Task<IActionResult> UpdateProfile(int id, UserProfileUpdateDto profileUpdate)
         {
-            var result = await _doctorService.UpdateDoctorProfile(id, doctor);
+            // Get the existing user
+            var existingUser = await _doctorService.GetDoctorProfile(id);
+            if (!existingUser.Success)
+                return BadRequest(existingUser.ErrorMessage);
+
+            // Update only the provided fields
+            var user = existingUser.Data;
+            if (profileUpdate.FirstName != null) user.FirstName = profileUpdate.FirstName;
+            if (profileUpdate.LastName != null) user.LastName = profileUpdate.LastName;
+            if (profileUpdate.Email != null) user.Email = profileUpdate.Email;
+            if (profileUpdate.Phone != null) user.Phone = profileUpdate.Phone;
+            if (profileUpdate.Address != null) user.Address = profileUpdate.Address;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            var result = await _doctorService.UpdateDoctorProfile(id, user);
             if (!result.Success)
                 return BadRequest(result.ErrorMessage);
 
@@ -115,6 +130,16 @@ namespace Backend.Controllers
         public async Task<IActionResult> GetSpecialties(int doctorId)
         {
             var result = await _doctorService.GetDoctorSpecialties(doctorId);
+            if (!result.Success)
+                return BadRequest(result.ErrorMessage);
+
+            return Ok(result.Data);
+        }
+
+        [HttpPut("specialty/{id}")]
+        public async Task<IActionResult> UpdateSpecialty(int id, DoctorSpecialty specialty)
+        {
+            var result = await _doctorService.UpdateSpecialty(id, specialty);
             if (!result.Success)
                 return BadRequest(result.ErrorMessage);
 

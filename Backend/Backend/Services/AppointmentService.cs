@@ -1,22 +1,25 @@
 using Backend.Models;
 using Backend.Repositories;
+using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace Backend.Services
 {
     public class AppointmentService : IAppointmentService
     {
         private readonly AppointmentsRepository _appointmentsRepository;
+        private readonly ILogger<AppointmentService> _logger;
 
-        public AppointmentService(AppointmentsRepository appointmentsRepository)
+        public AppointmentService(AppointmentsRepository appointmentsRepository, ILogger<AppointmentService> logger)
         {
             _appointmentsRepository = appointmentsRepository;
+            _logger = logger;
         }
 
         public async Task<ServiceResult<Appointment>> CreateAppointment(Appointment appointment)
         {
             try
             {
-                // 檢查時段是否可用
                 var timeSlotResult = await IsTimeSlotAvailable(
                     appointment.DoctorId, 
                     appointment.AppointmentDate, 
@@ -25,6 +28,9 @@ namespace Backend.Services
 
                 if (!timeSlotResult.Success)
                     return ServiceResult<Appointment>.ErrorResult(timeSlotResult.ErrorMessage, timeSlotResult.ErrorCode);
+
+                if (!timeSlotResult.Data)
+                    return ServiceResult<Appointment>.ErrorResult("該時段已被預約", "TIME_SLOT_NOT_AVAILABLE");
 
                 appointment.Status = "Scheduled";
                 var createdAppointment = await _appointmentsRepository.CreateAsync(appointment);
@@ -77,8 +83,9 @@ namespace Backend.Services
                 if (appointment == null)
                     return ServiceResult<bool>.ErrorResult("Appointment not found", "APPOINTMENT_NOT_FOUND");
 
-                appointment.Status = "Cancelled";
-                await _appointmentsRepository.UpdateAsync(appointment);
+                var deleted = await _appointmentsRepository.DeleteAsync(appointmentId);
+                if (!deleted)
+                    return ServiceResult<bool>.ErrorResult("Failed to delete appointment", "APPOINTMENT_DELETION_ERROR");
 
                 return ServiceResult<bool>.SuccessResult(true);
             }

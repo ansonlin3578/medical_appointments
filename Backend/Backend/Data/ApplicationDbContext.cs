@@ -80,7 +80,7 @@ namespace Backend.Data
             // 當醫生被刪除時，其所有專業領域記錄也會被刪除
             modelBuilder.Entity<User>()
                 .HasMany(u => u.DoctorSpecialties)
-                .WithOne(ds => ds.Doctor)
+                .WithOne()
                 .HasForeignKey(ds => ds.DoctorId)
                 .OnDelete(DeleteBehavior.Cascade);
         }

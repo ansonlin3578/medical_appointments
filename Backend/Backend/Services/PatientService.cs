@@ -49,13 +49,13 @@ namespace Backend.Services
             }
         }
 
-        public async Task<ServiceResult<Patient>> GetPatientProfile(int patientId)
+        public async Task<ServiceResult<Patient>> GetPatientProfile(int userId)
         {
             try
             {
                 var patient = await _context.Patients
                     .Include(p => p.User)
-                    .FirstOrDefaultAsync(p => p.Id == patientId);
+                    .FirstOrDefaultAsync(p => p.UserId == userId);
 
                 if (patient == null)
                     return ServiceResult<Patient>.ErrorResult("Patient not found", "PATIENT_NOT_FOUND");
@@ -70,20 +70,29 @@ namespace Backend.Services
             }
         }
 
-        public async Task<ServiceResult<Patient>> UpdatePatientProfile(int patientId, Patient patient)
+        public async Task<ServiceResult<Patient>> UpdatePatientProfile(int userId, UpdatePatientDto patientDto)
         {
             try
             {
-                var existingPatient = await _context.Patients.FindAsync(patientId);
-                if (existingPatient == null)
+                var existingPatient = await _context.Patients
+                    .FirstOrDefaultAsync(p => p.UserId == userId);
+                
+                var existingUser = await _context.Users
+                    .FirstOrDefaultAsync(p => p.Id == userId);
+
+                if (existingPatient == null || existingUser == null)
                     return ServiceResult<Patient>.ErrorResult("Patient not found", "PATIENT_NOT_FOUND");
 
                 // 更新病人信息
-                existingPatient.Name = patient.Name;
-                existingPatient.Phone = patient.Phone;
-                existingPatient.BirthDate = patient.BirthDate;
-                existingPatient.MedicalHistory = patient.MedicalHistory;
+                existingPatient.Name = patientDto.Name;
+                existingPatient.Phone = patientDto.Phone;
+                // 確保 BirthDate 是 UTC 格式
+                existingPatient.BirthDate = patientDto.BirthDate.HasValue 
+                    ? DateTime.SpecifyKind(patientDto.BirthDate.Value, DateTimeKind.Utc)
+                    : null;
+                existingPatient.MedicalHistory = patientDto.MedicalHistory;
                 existingPatient.UpdatedAt = DateTime.UtcNow;
+                existingUser.Address = patientDto.Address;
 
                 await _context.SaveChangesAsync();
 
@@ -141,33 +150,6 @@ namespace Backend.Services
                 return ServiceResult<IEnumerable<Appointment>>.ErrorResult(
                     "An error occurred while retrieving patient appointments",
                     "PATIENT_APPOINTMENTS_RETRIEVAL_ERROR");
-            }
-        }
-
-        public async Task<ServiceResult<bool>> CancelAppointment(int appointmentId)
-        {
-            try
-            {
-                var appointment = await _context.Appointments.FindAsync(appointmentId);
-                if (appointment == null)
-                    return ServiceResult<bool>.ErrorResult("Appointment not found", "APPOINTMENT_NOT_FOUND");
-
-                // 檢查是否可以取消（例如：預約時間是否在24小時內）
-                if (appointment.AppointmentDate <= DateTime.UtcNow.AddHours(24))
-                    return ServiceResult<bool>.ErrorResult("Cannot cancel appointment within 24 hours", "CANCELLATION_NOT_ALLOWED");
-
-                appointment.Status = "Cancelled";
-                appointment.UpdatedAt = DateTime.UtcNow;
-
-                await _context.SaveChangesAsync();
-
-                return ServiceResult<bool>.SuccessResult(true);
-            }
-            catch (Exception ex)
-            {
-                return ServiceResult<bool>.ErrorResult(
-                    "An error occurred while cancelling appointment",
-                    "APPOINTMENT_CANCELLATION_ERROR");
             }
         }
 
