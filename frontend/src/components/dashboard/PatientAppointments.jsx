@@ -66,6 +66,11 @@ const PatientAppointments = ({ appointments, doctors, onAppointmentChange, user 
       await appointmentService.cancelAppointment(appointmentId);
       setSuccess('Appointment cancelled successfully');
       onAppointmentChange();
+      
+      // Refresh available time slots if a doctor and date are selected
+      if (selectedDoctor && selectedDate) {
+        await fetchAvailableTimeSlots(selectedDoctor, selectedDate);
+      }
     } catch (error) {
       console.error('Error cancelling appointment:', error);
       setError('Failed to cancel appointment');
@@ -223,4 +228,4 @@ const PatientAppointments = ({ appointments, doctors, onAppointmentChange, user 
   );
 };
 
-export default PatientAppointments; 
+export default PatientAppointments;

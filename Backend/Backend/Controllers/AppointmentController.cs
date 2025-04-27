@@ -12,75 +12,43 @@ namespace Backend.Controllers
     public class AppointmentController : ControllerBase
     {
         private readonly IAppointmentService _appointmentService;
+        private readonly ILogger<AppointmentController> _logger;
 
-        public AppointmentController(IAppointmentService appointmentService)
+        public AppointmentController(IAppointmentService appointmentService, ILogger<AppointmentController> logger)
         {
             _appointmentService = appointmentService;
+            _logger = logger;
         }
 
         [HttpPost]
         public async Task<IActionResult> CreateAppointment([FromBody] Appointment appointment)
         {
-            Console.WriteLine($"Received appointment data: {JsonSerializer.Serialize(appointment)}");
-            
-            if (!ModelState.IsValid)
-            {
-                var errors = ModelState.Values
-                    .SelectMany(v => v.Errors)
-                    .Select(e => e.ErrorMessage)
-                    .ToList();
-                
-                Console.WriteLine($"Model validation errors: {string.Join(", ", errors)}");
-                Console.WriteLine($"ModelState: {JsonSerializer.Serialize(ModelState)}");
-                
-                return BadRequest(new { 
-                    Message = "Invalid appointment data", 
-                    Errors = errors,
-                    ModelState = ModelState
-                });
-            }
+            _logger.LogInformation($"Received appointment data: {JsonSerializer.Serialize(appointment)}");
 
             try
             {
-                // Ensure all DateTime values are in UTC
-                appointment.AppointmentDate = DateTime.SpecifyKind(appointment.AppointmentDate.Date, DateTimeKind.Utc);
-                appointment.CreatedAt = DateTime.UtcNow;
-                appointment.UpdatedAt = DateTime.UtcNow;
-
-                // Convert string times to TimeSpan
-                if (TimeSpan.TryParse(appointment.StartTime.ToString(), out TimeSpan startTime) &&
-                    TimeSpan.TryParse(appointment.EndTime.ToString(), out TimeSpan endTime))
-                {
-                    appointment.StartTime = startTime;
-                    appointment.EndTime = endTime;
-                }
-                else
-                {
-                    Console.WriteLine($"Failed to parse times: StartTime={appointment.StartTime}, EndTime={appointment.EndTime}");
-                    return BadRequest(new { Message = "Invalid time format. Please use HH:mm:ss format" });
-                }
-
                 var result = await _appointmentService.CreateAppointment(appointment);
                 
                 if (!result.Success)
                 {
-                    Console.WriteLine($"Appointment creation failed: {result.ErrorMessage} (Code: {result.ErrorCode})");
+                    _logger.LogWarning($"Appointment creation failed: {result.ErrorMessage} (Code: {result.ErrorCode})");
                     return result.ErrorCode switch
                     {
-                        "TIME_SLOT_UNAVAILABLE" => BadRequest(new { Message = result.ErrorMessage }),
-                        "DOCTOR_UNAVAILABLE" => BadRequest(new { Message = result.ErrorMessage }),
+                        "TIME_SLOT_NOT_AVAILABLE" => BadRequest(new { Message = result.ErrorMessage }),
+                        "VALIDATION_ERROR" => BadRequest(new { Message = result.ErrorMessage }),
+                        "INVALID_TIME_FORMAT" => BadRequest(new { Message = result.ErrorMessage }),
                         "APPOINTMENT_CREATION_ERROR" => StatusCode(500, new { Message = result.ErrorMessage }),
                         _ => StatusCode(400, new { Message = "An unexpected error occurred" })
                     };
                 }
 
-                Console.WriteLine($"Appointment created successfully: ID={result.Data?.Id}");
+                _logger.LogInformation($"Appointment created successfully: ID={result.Data?.Id}");
                 return Ok(result.Data);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Exception in CreateAppointment: {ex}");
-                return StatusCode(500, new { Message = "An error occurred while creating the appointment", Error = ex.Message });
+                _logger.LogError(ex, "Exception in CreateAppointment");
+                return StatusCode(500, new { Message = "An error occurred while creating the appointment" });
             }
         }
 
