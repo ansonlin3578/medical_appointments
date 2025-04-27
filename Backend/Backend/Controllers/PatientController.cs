@@ -1,22 +1,28 @@
 using Microsoft.AspNetCore.Mvc;
 using Backend.Models;
 using Backend.Services;
+using Backend.Models.DTOs;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Authorization;
+using Backend.Constants;
+using Microsoft.Extensions.Logging;
+using System.Security.Claims;
 
 namespace Backend.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Patient,Admin")]
+    [Authorize(Roles = $"{Roles.Patient},{Roles.Admin}")]
     public class PatientController : ControllerBase
     {
         private readonly IPatientService _patientService;
+        private readonly ILogger<PatientController> _logger;
 
-        public PatientController(IPatientService patientService)
+        public PatientController(IPatientService patientService, ILogger<PatientController> logger)
         {
             _patientService = patientService;
+            _logger = logger;
         }
 
         [HttpPost("profile")]
@@ -40,33 +46,44 @@ namespace Backend.Controllers
         }
 
         [HttpPut("profile/{id}")]
-        public async Task<IActionResult> UpdateProfile(int id, Patient patient)
+        public async Task<IActionResult> UpdateProfile(int id, UpdatePatientDto patientDto)
         {
-            var result = await _patientService.UpdatePatientProfile(id, patient);
+            var result = await _patientService.UpdatePatientProfile(id, patientDto);
             if (!result.Success)
                 return BadRequest(result.ErrorMessage);
 
             return Ok(result.Data);
         }
 
-        [HttpGet("appointments/{patientId}")]
-        public async Task<IActionResult> GetAppointments(int patientId)
+        [HttpGet("appointments")]
+        public async Task<IActionResult> GetPatientAppointments()
         {
-            var result = await _patientService.GetPatientAppointments(patientId);
-            if (!result.Success)
-                return BadRequest(result.ErrorMessage);
+            try
+            {
+                // 從 JWT token 中獲取用戶 ID
+                var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
+                if (userIdClaim == null)
+                {
+                    return BadRequest("User ID not found in token");
+                }
 
-            return Ok(result.Data);
-        }
+                var userId = int.Parse(userIdClaim.Value);
+                _logger.LogInformation($"Using userId from token: {userId}");
 
-        [HttpPost("appointments/cancel/{appointmentId}")]
-        public async Task<IActionResult> CancelAppointment(int appointmentId)
-        {
-            var result = await _patientService.CancelAppointment(appointmentId);
-            if (!result.Success)
-                return BadRequest(result.ErrorMessage);
+                var result = await _patientService.GetPatientAppointments(userId);
+                if (!result.Success)
+                {
+                    return BadRequest(result.ErrorMessage);
+                }
 
-            return Ok(result.Data);
+                _logger.LogInformation($"Successfully retrieved {result.Data?.Count() ?? 0} appointments");
+                return Ok(result.Data);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Exception in GetPatientAppointments: {ex.Message}");
+                return StatusCode(500, "An error occurred while processing your request");
+            }
         }
 
         [HttpGet("available-time-slots/{doctorId}")]
@@ -79,14 +96,20 @@ namespace Backend.Controllers
             return Ok(result.Data);
         }
 
-        [HttpGet("check-conflict/{patientId}")]
-        public async Task<IActionResult> CheckAppointmentConflict(
-            int patientId,
-            [FromQuery] DateTime date,
-            [FromQuery] TimeSpan startTime,
-            [FromQuery] TimeSpan endTime)
+        [HttpGet("appointments/{patientId}")]
+        public async Task<IActionResult> GetPatientAppointments(int patientId)
         {
-            var result = await _patientService.CheckAppointmentConflict(patientId, date, startTime, endTime);
+            var result = await _patientService.GetPatientAppointments(patientId);
+            if (!result.Success)
+                return BadRequest(result.ErrorMessage);
+
+            return Ok(result.Data);
+        }
+
+        [HttpGet("doctors")]
+        public async Task<IActionResult> GetAllDoctors()
+        {
+            var result = await _patientService.GetAllDoctors();
             if (!result.Success)
                 return BadRequest(result.ErrorMessage);
 

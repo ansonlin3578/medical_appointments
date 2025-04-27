@@ -7,7 +7,7 @@ using Backend.Services;
 namespace Backend.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/auth")]
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
@@ -20,12 +20,15 @@ namespace Backend.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
-            var user = new User
-            {
-                Username = request.Username,
-                Email = request.Email,
-                Role = request.Role
-            };
+            var user = new User(
+                id: 0, // Will be set by the database
+                username: request.Username,
+                email: request.Email,
+                passwordHash: "", // Will be set by AuthService
+                firstName: request.FirstName,
+                lastName: request.LastName,
+                role: request.Role
+            );
 
             var result = await _authService.Register(user, request.Password);
             
@@ -56,7 +59,10 @@ namespace Backend.Controllers
                 };
             }
 
-            return Ok(new { Token = result.Data });
+            return Ok(new { 
+                token = result.Data,
+                message = "Login successful"
+            });
         }
 
         [Authorize]
@@ -81,15 +87,17 @@ namespace Backend.Controllers
 
     public class RegisterRequest
     {
-        public string Username { get; set; }
-        public string Email { get; set; }
-        public string Password { get; set; }
-        public string Role { get; set; }
+        public required string Username { get; set; }
+        public required string Email { get; set; }
+        public required string Password { get; set; }
+        public required string Role { get; set; }
+        public required string FirstName { get; set; }
+        public required string LastName { get; set; }
     }
 
     public class LoginRequest
     {
-        public string Username { get; set; }
-        public string Password { get; set; }
+        public required string Username { get; set; }
+        public required string Password { get; set; }
     }
 } 

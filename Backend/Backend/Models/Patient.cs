@@ -2,27 +2,23 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Backend.Models
 {
-    public class Patient
+    public class Patient(int id, int userId, string name)
     {
         [Key]
-        public int Id { get; set; }
+        public int Id { get; set; } = id;
 
         [Required]
-        public int UserId { get; set; }
-        public User User { get; set; }
+        public int UserId { get; set; } = userId;
+        
+        public User User { get; set; } = null!;
 
         [Required]
         [StringLength(100)]
-        public string Name { get; set; }
+        public string Name { get; set; } = name;
 
-        [Required]
-        [Phone]
-        public string Phone { get; set; }
+        public DateTime? BirthDate { get; set; }
 
-        [Required]
-        public DateTime BirthDate { get; set; }
-
-        public string MedicalHistory { get; set; }
+        public string? MedicalHistory { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

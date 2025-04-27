@@ -1,0 +1,1 @@
+export const API_BASE_URL = 'http://localhost:5000'; // 或你的實際 API 地址 

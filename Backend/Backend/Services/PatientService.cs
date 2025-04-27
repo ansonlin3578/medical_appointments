@@ -1,10 +1,14 @@
 using Backend.Models;
 using Backend.Data;
+using Backend.Utils;
+using Backend.Models.DTOs;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Backend.Constants;
 
 namespace Backend.Services
 {
@@ -12,11 +16,13 @@ namespace Backend.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly IAppointmentService _appointmentService;
+        private readonly ILogger<PatientService> _logger;
 
-        public PatientService(ApplicationDbContext context, IAppointmentService appointmentService)
+        public PatientService(ApplicationDbContext context, IAppointmentService appointmentService, ILogger<PatientService> logger)
         {
             _context = context;
             _appointmentService = appointmentService;
+            _logger = logger;
         }
 
         public async Task<ServiceResult<Patient>> CreatePatient(Patient patient)
@@ -46,13 +52,13 @@ namespace Backend.Services
             }
         }
 
-        public async Task<ServiceResult<Patient>> GetPatientProfile(int patientId)
+        public async Task<ServiceResult<Patient>> GetPatientProfile(int userId)
         {
             try
             {
                 var patient = await _context.Patients
                     .Include(p => p.User)
-                    .FirstOrDefaultAsync(p => p.Id == patientId);
+                    .FirstOrDefaultAsync(p => p.UserId == userId);
 
                 if (patient == null)
                     return ServiceResult<Patient>.ErrorResult("Patient not found", "PATIENT_NOT_FOUND");
@@ -67,20 +73,28 @@ namespace Backend.Services
             }
         }
 
-        public async Task<ServiceResult<Patient>> UpdatePatientProfile(int patientId, Patient patient)
+        public async Task<ServiceResult<Patient>> UpdatePatientProfile(int userId, UpdatePatientDto patientDto)
         {
             try
             {
-                var existingPatient = await _context.Patients.FindAsync(patientId);
-                if (existingPatient == null)
+                var existingPatient = await _context.Patients
+                    .Include(p => p.User)
+                    .FirstOrDefaultAsync(p => p.UserId == userId);
+
+                if (existingPatient == null || existingPatient.User == null)
                     return ServiceResult<Patient>.ErrorResult("Patient not found", "PATIENT_NOT_FOUND");
 
                 // 更新病人信息
-                existingPatient.Name = patient.Name;
-                existingPatient.Phone = patient.Phone;
-                existingPatient.BirthDate = patient.BirthDate;
-                existingPatient.MedicalHistory = patient.MedicalHistory;
+                existingPatient.Name = patientDto.Name;
+                // 確保 BirthDate 是 UTC 格式
+                existingPatient.BirthDate = patientDto.BirthDate.HasValue 
+                    ? DateTime.SpecifyKind(patientDto.BirthDate.Value, DateTimeKind.Utc)
+                    : null;
+                existingPatient.MedicalHistory = patientDto.MedicalHistory;
                 existingPatient.UpdatedAt = DateTime.UtcNow;
+                // 更新用户信息
+                existingPatient.User.Phone = patientDto.Phone;
+                existingPatient.User.Address = patientDto.Address;
 
                 await _context.SaveChangesAsync();
 
@@ -94,51 +108,47 @@ namespace Backend.Services
             }
         }
 
-        public async Task<ServiceResult<IEnumerable<Appointment>>> GetPatientAppointments(int patientId)
+        public async Task<ServiceResult<IEnumerable<Appointment>>> GetPatientAppointments(int userId)
         {
             try
-            {
+            {   
+                _logger.LogInformation($"GetPatientAppointments called with userId: {userId}");
+                
+                // 首先檢查患者是否存在
+                var patient = await _context.Patients
+                    .Include(p => p.User)
+                    .FirstOrDefaultAsync(p => p.UserId == userId);
+                if (patient == null)
+                {
+                    _logger.LogWarning($"Patient with UserId {userId} not found");
+                    return ServiceResult<IEnumerable<Appointment>>.ErrorResult("Patient not found", "PATIENT_NOT_FOUND");
+                }
+                _logger.LogInformation($"Found patient: {patient.Name}");
+
                 var appointments = await _context.Appointments
-                    .Include(a => a.Doctor)
-                    .Where(a => a.PatientId == patientId)
+                    .Where(a => a.PatientId == userId)
                     .OrderByDescending(a => a.AppointmentDate)
                     .ThenBy(a => a.StartTime)
+                    .Select(a => new Appointment(
+                        a.Id,
+                        a.PatientId,
+                        a.DoctorId,
+                        a.AppointmentDate,
+                        a.StartTime,
+                        a.EndTime,
+                        a.Status
+                    ))
                     .ToListAsync();
-
+                
+                _logger.LogInformation($"Found {appointments.Count} appointments for patient {patient.Id}");
                 return ServiceResult<IEnumerable<Appointment>>.SuccessResult(appointments);
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, $"Error in GetPatientAppointments: {ex.Message}");
                 return ServiceResult<IEnumerable<Appointment>>.ErrorResult(
                     "An error occurred while retrieving patient appointments",
-                    "APPOINTMENTS_RETRIEVAL_ERROR");
-            }
-        }
-
-        public async Task<ServiceResult<bool>> CancelAppointment(int appointmentId)
-        {
-            try
-            {
-                var appointment = await _context.Appointments.FindAsync(appointmentId);
-                if (appointment == null)
-                    return ServiceResult<bool>.ErrorResult("Appointment not found", "APPOINTMENT_NOT_FOUND");
-
-                // 檢查是否可以取消（例如：預約時間是否在24小時內）
-                if (appointment.AppointmentDate <= DateTime.UtcNow.AddHours(24))
-                    return ServiceResult<bool>.ErrorResult("Cannot cancel appointment within 24 hours", "CANCELLATION_NOT_ALLOWED");
-
-                appointment.Status = "Cancelled";
-                appointment.UpdatedAt = DateTime.UtcNow;
-
-                await _context.SaveChangesAsync();
-
-                return ServiceResult<bool>.SuccessResult(true);
-            }
-            catch (Exception ex)
-            {
-                return ServiceResult<bool>.ErrorResult(
-                    "An error occurred while cancelling appointment",
-                    "APPOINTMENT_CANCELLATION_ERROR");
+                    "PATIENT_APPOINTMENTS_RETRIEVAL_ERROR");
             }
         }
 
@@ -165,9 +175,7 @@ namespace Backend.Services
                 // 過濾掉已預約的時間段
                 var availableSlots = schedules.Where(schedule =>
                     !appointments.Any(appointment =>
-                        (schedule.StartTime >= appointment.StartTime && schedule.StartTime < appointment.EndTime) ||
-                        (schedule.EndTime > appointment.StartTime && schedule.EndTime <= appointment.EndTime) ||
-                        (schedule.StartTime <= appointment.StartTime && schedule.EndTime >= appointment.EndTime)
+                        appointment.StartTime < schedule.EndTime && appointment.EndTime > schedule.StartTime
                     )
                 ).ToList();
 
@@ -181,26 +189,39 @@ namespace Backend.Services
             }
         }
 
-        public async Task<ServiceResult<bool>> CheckAppointmentConflict(int patientId, DateTime date, TimeSpan startTime, TimeSpan endTime)
+        public async Task<ServiceResult<IEnumerable<User>>> GetAllDoctors()
         {
             try
             {
-                var hasConflict = await _context.Appointments
-                    .AnyAsync(a => a.PatientId == patientId &&
-                                 a.AppointmentDate.Date == date.Date &&
-                                 a.Status != "Cancelled" &&
-                                 ((a.StartTime <= startTime && a.EndTime > startTime) ||
-                                  (a.StartTime < endTime && a.EndTime >= endTime) ||
-                                  (a.StartTime >= startTime && a.EndTime <= endTime)));
+                var doctors = await _context.Users
+                    .Where(u => u.Role == "Doctor")
+                    .ToListAsync();
 
-                return ServiceResult<bool>.SuccessResult(!hasConflict);
+                return ServiceResult<IEnumerable<User>>.SuccessResult(doctors);
             }
             catch (Exception ex)
             {
-                return ServiceResult<bool>.ErrorResult(
-                    "An error occurred while checking appointment conflict",
-                    "CONFLICT_CHECK_ERROR");
+                return ServiceResult<IEnumerable<User>>.ErrorResult($"Error retrieving doctors: {ex.Message}");
             }
+        }
+
+        public async Task<Patient> GetPatientByUserId(int userId)
+        {
+            return await _context.Patients.FirstOrDefaultAsync(p => p.UserId == userId);
+        }
+
+        public async Task<Patient> CreatePatientFromUser(User user)
+        {
+            var patient = new Patient(
+                id: 0, // Will be set by the database
+                userId: user.Id,
+                name: $"{user.FirstName} {user.LastName}"
+            );
+            patient.User = user;
+
+            _context.Patients.Add(patient);
+            await _context.SaveChangesAsync();
+            return patient;
         }
     }
 } 

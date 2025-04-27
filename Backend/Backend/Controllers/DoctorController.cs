@@ -4,12 +4,14 @@ using Backend.Services;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Authorization;
+using Backend.Constants;
+using Backend.Models.DTOs;
 
 namespace Backend.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Doctor,Admin")]
+    [Authorize(Roles = $"{Roles.Doctor},{Roles.Admin},{Roles.Patient}")]
     public class DoctorController : ControllerBase
     {
         private readonly IDoctorService _doctorService;
@@ -30,9 +32,9 @@ namespace Backend.Controllers
         }
 
         [HttpPut("profile/{id}")]
-        public async Task<IActionResult> UpdateProfile(int id, Doctor doctor)
+        public async Task<IActionResult> UpdateProfile(int id, UserProfileUpdateDto profileUpdate)
         {
-            var result = await _doctorService.UpdateDoctorProfile(id, doctor);
+            var result = await _doctorService.UpdateDoctorProfile(id, profileUpdate);
             if (!result.Success)
                 return BadRequest(result.ErrorMessage);
 
@@ -54,7 +56,7 @@ namespace Backend.Controllers
         {
             var result = await _doctorService.SetSchedule(schedule);
             if (!result.Success)
-                return BadRequest(result.ErrorMessage);
+                return StatusCode(400, new { Message = result.ErrorMessage });
 
             return Ok(result.Data);
         }
@@ -71,11 +73,18 @@ namespace Backend.Controllers
 
         [HttpGet("available-time-slots/{doctorId}")]
         public async Task<IActionResult> GetAvailableTimeSlots(int doctorId, [FromQuery] DateTime date)
-        {
-            var result = await _doctorService.GetAvailableTimeSlots(doctorId, date);
+        {   
+            // Ensure the date is in UTC format
+            var utcDate = date.Kind == DateTimeKind.Unspecified 
+                ? DateTime.SpecifyKind(date, DateTimeKind.Utc)
+                : date.ToUniversalTime();
+            
+            var result = await _doctorService.GetAvailableTimeSlots(doctorId, utcDate);
             if (!result.Success)
+            {
+                Console.WriteLine($"Error in GetAvailableTimeSlots: {result.ErrorMessage}");
                 return BadRequest(result.ErrorMessage);
-
+            }
             return Ok(result.Data);
         }
 
@@ -103,6 +112,16 @@ namespace Backend.Controllers
         public async Task<IActionResult> GetSpecialties(int doctorId)
         {
             var result = await _doctorService.GetDoctorSpecialties(doctorId);
+            if (!result.Success)
+                return BadRequest(result.ErrorMessage);
+
+            return Ok(result.Data);
+        }
+
+        [HttpPut("specialty/{id}")]
+        public async Task<IActionResult> UpdateSpecialty(int id, DoctorSpecialty specialty)
+        {
+            var result = await _doctorService.UpdateSpecialty(id, specialty);
             if (!result.Success)
                 return BadRequest(result.ErrorMessage);
 

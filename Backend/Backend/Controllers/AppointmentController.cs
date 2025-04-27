@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Backend.Models;
 using Backend.Services;
+using System.Text.Json;
 
 namespace Backend.Controllers
 {
@@ -11,33 +12,48 @@ namespace Backend.Controllers
     public class AppointmentController : ControllerBase
     {
         private readonly IAppointmentService _appointmentService;
+        private readonly ILogger<AppointmentController> _logger;
 
-        public AppointmentController(IAppointmentService appointmentService)
+        public AppointmentController(IAppointmentService appointmentService, ILogger<AppointmentController> logger)
         {
             _appointmentService = appointmentService;
+            _logger = logger;
         }
 
         [HttpPost]
         public async Task<IActionResult> CreateAppointment([FromBody] Appointment appointment)
         {
-            var result = await _appointmentService.CreateAppointment(appointment);
-            
-            if (!result.Success)
-            {
-                return result.ErrorCode switch
-                {
-                    "TIME_SLOT_UNAVAILABLE" => BadRequest(new { Message = result.ErrorMessage }),
-                    "DOCTOR_UNAVAILABLE" => BadRequest(new { Message = result.ErrorMessage }),
-                    "APPOINTMENT_CREATION_ERROR" => StatusCode(500, new { Message = result.ErrorMessage }),
-                    _ => StatusCode(500, new { Message = "An unexpected error occurred" })
-                };
-            }
+            _logger.LogInformation($"Received appointment data: {JsonSerializer.Serialize(appointment)}");
 
-            return Ok(result.Data);
+            try
+            {
+                var result = await _appointmentService.CreateAppointment(appointment);
+                
+                if (!result.Success)
+                {
+                    _logger.LogWarning($"Appointment creation failed: {result.ErrorMessage} (Code: {result.ErrorCode})");
+                    return result.ErrorCode switch
+                    {
+                        "TIME_SLOT_NOT_AVAILABLE" => BadRequest(new { Message = result.ErrorMessage }),
+                        "VALIDATION_ERROR" => BadRequest(new { Message = result.ErrorMessage }),
+                        "INVALID_TIME_FORMAT" => BadRequest(new { Message = result.ErrorMessage }),
+                        "APPOINTMENT_CREATION_ERROR" => StatusCode(500, new { Message = result.ErrorMessage }),
+                        _ => StatusCode(400, new { Message = "An unexpected error occurred" })
+                    };
+                }
+
+                _logger.LogInformation($"Appointment created successfully: ID={result.Data?.Id}");
+                return Ok(result.Data);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Exception in CreateAppointment");
+                return StatusCode(500, new { Message = "An error occurred while creating the appointment" });
+            }
         }
 
         [HttpGet("patient/{patientId}")]
-        public async Task<IActionResult> GetPatientAppointments(int patientId)
+        public async Task<IActionResult> GetAppointmentsByPatientId(int patientId)
         {
             var result = await _appointmentService.GetPatientAppointments(patientId);
             
