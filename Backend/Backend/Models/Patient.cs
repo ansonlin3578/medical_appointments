@@ -15,9 +15,6 @@ namespace Backend.Models
         [StringLength(100)]
         public string Name { get; set; }
 
-        [Phone]
-        public string? Phone { get; set; }
-
         public DateTime? BirthDate { get; set; }
 
         public string? MedicalHistory { get; set; }

@@ -75,24 +75,23 @@ namespace Backend.Services
             try
             {
                 var existingPatient = await _context.Patients
+                    .Include(p => p.User)
                     .FirstOrDefaultAsync(p => p.UserId == userId);
-                
-                var existingUser = await _context.Users
-                    .FirstOrDefaultAsync(p => p.Id == userId);
 
-                if (existingPatient == null || existingUser == null)
+                if (existingPatient == null || existingPatient.User == null)
                     return ServiceResult<Patient>.ErrorResult("Patient not found", "PATIENT_NOT_FOUND");
 
                 // 更新病人信息
                 existingPatient.Name = patientDto.Name;
-                existingPatient.Phone = patientDto.Phone;
                 // 確保 BirthDate 是 UTC 格式
                 existingPatient.BirthDate = patientDto.BirthDate.HasValue 
                     ? DateTime.SpecifyKind(patientDto.BirthDate.Value, DateTimeKind.Utc)
                     : null;
                 existingPatient.MedicalHistory = patientDto.MedicalHistory;
                 existingPatient.UpdatedAt = DateTime.UtcNow;
-                existingUser.Address = patientDto.Address;
+                // 更新用户信息
+                existingPatient.User.Phone = patientDto.Phone;
+                existingPatient.User.Address = patientDto.Address;
 
                 await _context.SaveChangesAsync();
 
@@ -176,9 +175,7 @@ namespace Backend.Services
                 // 過濾掉已預約的時間段
                 var availableSlots = schedules.Where(schedule =>
                     !appointments.Any(appointment =>
-                        (schedule.StartTime >= appointment.StartTime && schedule.StartTime < appointment.EndTime) ||
-                        (schedule.EndTime > appointment.StartTime && schedule.EndTime <= appointment.EndTime) ||
-                        (schedule.StartTime <= appointment.StartTime && schedule.EndTime >= appointment.EndTime)
+                        appointment.StartTime < schedule.EndTime && appointment.EndTime > schedule.StartTime
                     )
                 ).ToList();
 
@@ -189,28 +186,6 @@ namespace Backend.Services
                 return ServiceResult<IEnumerable<DoctorSchedule>>.ErrorResult(
                     "An error occurred while retrieving available time slots",
                     "TIME_SLOTS_RETRIEVAL_ERROR");
-            }
-        }
-
-        public async Task<ServiceResult<bool>> CheckAppointmentConflict(int patientId, DateTime date, TimeSpan startTime, TimeSpan endTime)
-        {
-            try
-            {
-                var hasConflict = await _context.Appointments
-                    .AnyAsync(a => a.PatientId == patientId &&
-                                 a.AppointmentDate.Date == date.Date &&
-                                 a.Status != "Cancelled" &&
-                                 ((a.StartTime <= startTime && a.EndTime > startTime) ||
-                                  (a.StartTime < endTime && a.EndTime >= endTime) ||
-                                  (a.StartTime >= startTime && a.EndTime <= endTime)));
-
-                return ServiceResult<bool>.SuccessResult(!hasConflict);
-            }
-            catch (Exception ex)
-            {
-                return ServiceResult<bool>.ErrorResult(
-                    "An error occurred while checking appointment conflict",
-                    "CONFLICT_CHECK_ERROR");
             }
         }
 
@@ -241,7 +216,6 @@ namespace Backend.Services
             {
                 UserId = user.Id,
                 Name = $"{user.FirstName} {user.LastName}",
-                Phone = user.Phone,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };

@@ -12,7 +12,6 @@ namespace Backend.Services
         Task<ServiceResult<Patient>> UpdatePatientProfile(int userId, UpdatePatientDto patientDto);
         Task<ServiceResult<IEnumerable<Appointment>>> GetPatientAppointments(int patientId);
         Task<ServiceResult<IEnumerable<DoctorSchedule>>> GetAvailableTimeSlots(int doctorId, DateTime date);
-        Task<ServiceResult<bool>> CheckAppointmentConflict(int patientId, DateTime date, TimeSpan startTime, TimeSpan endTime);
         Task<ServiceResult<IEnumerable<User>>> GetAllDoctors();
         Task<Patient> GetPatientByUserId(int userId);
         Task<Patient> CreatePatientFromUser(User user);

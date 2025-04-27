@@ -54,7 +54,6 @@ namespace Backend.Services
                     {
                         UserId = user.Id,
                         Name = $"{user.FirstName} {user.LastName}",
-                        Phone = user.Phone,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow
                     };

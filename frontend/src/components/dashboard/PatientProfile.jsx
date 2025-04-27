@@ -5,9 +5,9 @@ const PatientProfile = ({ patient, user, onUpdate, setPatient }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedProfile, setEditedProfile] = useState({
     name: patient?.name || '',
-    phone: patient?.phone || '',
+    phone: user?.phone || '',
     birthDate: patient?.birthDate ? new Date(patient.birthDate).toISOString().split('T')[0] : '',
-    address: patient?.user?.address || '',
+    address: user?.address || '',
     medicalHistory: patient?.medicalHistory || ''
   });
 
@@ -24,7 +24,7 @@ const PatientProfile = ({ patient, user, onUpdate, setPatient }) => {
   const handleCancel = () => {
     setEditedProfile({
       name: patient?.name || '',
-      phone: patient?.phone || '',
+      phone: patient?.user?.phone || '',
       birthDate: patient?.birthDate ? new Date(patient.birthDate).toISOString().split('T')[0] : '',
       address: patient?.user?.address || '',
       medicalHistory: patient?.medicalHistory || ''
@@ -90,6 +90,14 @@ const PatientProfile = ({ patient, user, onUpdate, setPatient }) => {
                     onChange={(e) => setEditedProfile({...editedProfile, address: e.target.value})}
                   />
                 </Form.Group>
+                <Form.Group className="mb-3">
+                  <Form.Label>medicalHistory</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={editedProfile.medicalHistory}
+                    onChange={(e) => setEditedProfile({...editedProfile, medicalHistory: e.target.value})}
+                  />
+                </Form.Group>
               </Col>
             </Row>
           </Form>
@@ -98,11 +106,12 @@ const PatientProfile = ({ patient, user, onUpdate, setPatient }) => {
             <Col md={6}>
               <p><strong>Name:</strong> {patient?.name}</p>
               <p><strong>Email:</strong> {user?.email}</p>
-              <p><strong>Phone:</strong> {patient?.phone || 'Not provided'}</p>
+              <p><strong>Phone:</strong> {patient?.user?.phone || 'Not provided'}</p>
             </Col>
             <Col md={6}>
               <p><strong>Date of Birth:</strong> {patient?.birthDate ? new Date(patient.birthDate).toLocaleDateString() : 'Not provided'}</p>
               <p><strong>Address:</strong> {patient?.user?.address || 'Not provided'}</p>
+              <p><strong>MedicalHistory:</strong> {patient?.medicalHistory || 'Not provided'}</p>
             </Col>
           </Row>
         )}

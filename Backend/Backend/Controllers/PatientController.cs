@@ -101,14 +101,10 @@ namespace Backend.Controllers
             return Ok(result.Data);
         }
 
-        [HttpGet("check-conflict/{patientId}")]
-        public async Task<IActionResult> CheckAppointmentConflict(
-            int patientId,
-            [FromQuery] DateTime date,
-            [FromQuery] TimeSpan startTime,
-            [FromQuery] TimeSpan endTime)
+        [HttpGet("appointments/{patientId}")]
+        public async Task<IActionResult> GetPatientAppointments(int patientId)
         {
-            var result = await _patientService.CheckAppointmentConflict(patientId, date, startTime, endTime);
+            var result = await _patientService.GetPatientAppointments(patientId);
             if (!result.Success)
                 return BadRequest(result.ErrorMessage);
 
@@ -119,11 +115,9 @@ namespace Backend.Controllers
         public async Task<IActionResult> GetAllDoctors()
         {
             var result = await _patientService.GetAllDoctors();
-            
             if (!result.Success)
-            {
                 return BadRequest(result.ErrorMessage);
-            }
+
             return Ok(result.Data);
         }
     }
