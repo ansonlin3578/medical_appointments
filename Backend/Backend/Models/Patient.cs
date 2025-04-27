@@ -2,18 +2,19 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Backend.Models
 {
-    public class Patient
+    public class Patient(int id, int userId, string name)
     {
         [Key]
-        public int Id { get; set; }
+        public int Id { get; set; } = id;
 
         [Required]
-        public int UserId { get; set; }
-        public User User { get; set; }
+        public int UserId { get; set; } = userId;
+        
+        public User User { get; set; } = null!;
 
         [Required]
         [StringLength(100)]
-        public string Name { get; set; }
+        public string Name { get; set; } = name;
 
         public DateTime? BirthDate { get; set; }
 

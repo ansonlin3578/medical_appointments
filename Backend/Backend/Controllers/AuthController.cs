@@ -20,14 +20,15 @@ namespace Backend.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
-            var user = new User
-            {
-                Username = request.Username,
-                Email = request.Email,
-                Role = request.Role,
-                FirstName = request.FirstName,
-                LastName = request.LastName
-            };
+            var user = new User(
+                id: 0, // Will be set by the database
+                username: request.Username,
+                email: request.Email,
+                passwordHash: "", // Will be set by AuthService
+                firstName: request.FirstName,
+                lastName: request.LastName,
+                role: request.Role
+            );
 
             var result = await _authService.Register(user, request.Password);
             

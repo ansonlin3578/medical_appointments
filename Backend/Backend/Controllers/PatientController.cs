@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Backend.Models;
 using Backend.Services;
+using Backend.Models.DTOs;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Authorization;
@@ -57,17 +58,12 @@ namespace Backend.Controllers
         [HttpGet("appointments")]
         public async Task<IActionResult> GetPatientAppointments()
         {
-            _logger.LogInformation("GetPatientAppointments called");
-            _logger.LogInformation($"User claims: {string.Join(", ", User.Claims.Select(c => $"{c.Type}: {c.Value}"))}");
-            _logger.LogInformation($"User identity: {User.Identity?.Name}, IsAuthenticated: {User.Identity?.IsAuthenticated}");
-            
             try
             {
                 // 從 JWT token 中獲取用戶 ID
                 var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
                 if (userIdClaim == null)
                 {
-                    _logger.LogError("User ID claim not found in token");
                     return BadRequest("User ID not found in token");
                 }
 
@@ -77,7 +73,6 @@ namespace Backend.Controllers
                 var result = await _patientService.GetPatientAppointments(userId);
                 if (!result.Success)
                 {
-                    _logger.LogError($"Error in GetPatientAppointments: {result.ErrorMessage}");
                     return BadRequest(result.ErrorMessage);
                 }
 

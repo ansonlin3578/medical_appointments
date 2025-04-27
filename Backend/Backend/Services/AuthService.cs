@@ -50,13 +50,12 @@ namespace Backend.Services
 
                 if (user.Role.ToLower() == "patient")
                 {
-                    var patient = new Patient
-                    {
-                        UserId = user.Id,
-                        Name = $"{user.FirstName} {user.LastName}",
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
+                    var patient = new Patient(
+                        id: 0, // Will be set by the database
+                        userId: user.Id,
+                        name: $"{user.FirstName} {user.LastName}"
+                    );
+                    patient.User = user;
 
                     _context.Patients.Add(patient);
                     await _context.SaveChangesAsync();
@@ -64,13 +63,13 @@ namespace Backend.Services
                 }
                 else if (user.Role.ToLower() == "doctor")
                 {
-                    var doctorSpecialty = new DoctorSpecialty
-                    {
-                        DoctorId = user.Id,
-                        Specialty = "General Medicine", // Default specialty
-                        Description = "General medical practice",
-                        YearsOfExperience = 0
-                    };
+                    var doctorSpecialty = new DoctorSpecialty(
+                        id: 0,
+                        doctorId: user.Id,
+                        specialty: "General Medicine",
+                        description: "General medical practice",
+                        yearsOfExperience: 0
+                    );
 
                     _context.DoctorSpecialties.Add(doctorSpecialty);
                     await _context.SaveChangesAsync();
@@ -100,6 +99,7 @@ namespace Backend.Services
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error during login for user {Username}: {Message}", username, ex.Message);
                 return ServiceResult<string>.ErrorResult("An error occurred during login", "LOGIN_ERROR");
             }
         }

@@ -1,13 +1,14 @@
 using Backend.Data;
 using Backend.Models;
+using Backend.Utils;
+using Backend.Models.DTOs;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Backend.Constants;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using Backend.Utils;
-using Backend.Constants;
 
 namespace Backend.Services
 {
@@ -40,21 +41,21 @@ namespace Backend.Services
                     .AnyAsync(ds => ds.DoctorId == schedule.DoctorId &&
                                    ds.DayOfWeek == schedule.DayOfWeek &&
                                    ds.Id != schedule.Id &&
-                                   ((ds.StartTime <= schedule.StartTime && ds.EndTime > schedule.StartTime) ||
-                                    (ds.StartTime < schedule.EndTime && ds.EndTime >= schedule.EndTime) ||
-                                    (ds.StartTime >= schedule.StartTime && ds.EndTime <= schedule.EndTime)));
+                                   ds.StartTime < schedule.EndTime && ds.EndTime > schedule.StartTime);
 
                 if (overlappingSchedule)
                     return ServiceResult<DoctorSchedule>.ErrorResult("Schedule overlaps with existing schedule", "SCHEDULE_OVERLAP");
 
                 // Create a new DoctorSchedule without the Doctor navigation property
-                var newSchedule = new DoctorSchedule
+                var newSchedule = new DoctorSchedule(
+                    id: schedule.Id,
+                    doctorId: schedule.DoctorId,
+                    dayOfWeek: schedule.DayOfWeek,
+                    startTime: schedule.StartTime,
+                    endTime: schedule.EndTime,
+                    isAvailable: schedule.IsAvailable
+                )
                 {
-                    DoctorId = schedule.DoctorId,
-                    DayOfWeek = schedule.DayOfWeek,
-                    StartTime = schedule.StartTime,
-                    EndTime = schedule.EndTime,
-                    IsAvailable = schedule.IsAvailable,
                     Notes = schedule.Notes
                 };
 
@@ -64,19 +65,19 @@ namespace Backend.Services
                 }
                 else
                 {
-                    newSchedule.Id = schedule.Id;
                     _context.DoctorSchedules.Update(newSchedule);
                 }
 
                 await _context.SaveChangesAsync();
-                return ServiceResult<DoctorSchedule>.SuccessResult(new DoctorSchedule
+                return ServiceResult<DoctorSchedule>.SuccessResult(new DoctorSchedule(
+                    id: newSchedule.Id,
+                    doctorId: newSchedule.DoctorId,
+                    dayOfWeek: newSchedule.DayOfWeek,
+                    startTime: newSchedule.StartTime,
+                    endTime: newSchedule.EndTime,
+                    isAvailable: newSchedule.IsAvailable
+                )
                 {
-                    Id = newSchedule.Id,
-                    DoctorId = newSchedule.DoctorId,
-                    DayOfWeek = newSchedule.DayOfWeek,
-                    StartTime = newSchedule.StartTime,
-                    EndTime = newSchedule.EndTime,
-                    IsAvailable = newSchedule.IsAvailable,
                     Notes = newSchedule.Notes
                 });
             }
@@ -138,10 +139,18 @@ namespace Backend.Services
                 if (doctor == null || doctor.Role != Roles.Doctor)
                     return ServiceResult<DoctorSpecialty>.ErrorResult("Doctor not found", "DOCTOR_NOT_FOUND");
 
-                _context.DoctorSpecialties.Add(specialty);
+                var newSpecialty = new DoctorSpecialty(
+                    id: 0,
+                    doctorId: specialty.DoctorId,
+                    specialty: specialty.Specialty,
+                    description: specialty.Description,
+                    yearsOfExperience: specialty.YearsOfExperience
+                );
+
+                _context.DoctorSpecialties.Add(newSpecialty);
                 await _context.SaveChangesAsync();
 
-                return ServiceResult<DoctorSpecialty>.SuccessResult(specialty);
+                return ServiceResult<DoctorSpecialty>.SuccessResult(newSpecialty);
             }
             catch (Exception ex)
             {
@@ -235,25 +244,26 @@ namespace Backend.Services
             }
         }
 
-        public async Task<ServiceResult<User>> UpdateDoctorProfile(int doctorId, User doctor)
+        public async Task<ServiceResult<User>> UpdateDoctorProfile(int doctorId, UserProfileUpdateDto profileUpdate)
         {
             try
             {
-                var existingDoctor = await _context.Users.FindAsync(doctorId);
-                if (existingDoctor == null || existingDoctor.Role != Roles.Doctor)
-                    return ServiceResult<User>.ErrorResult("Doctor not found", "DOCTOR_NOT_FOUND");
+                var existingUser = await GetDoctorProfile(doctorId);
+                if (!existingUser.Success || existingUser.Data == null)
+                    return existingUser;
 
-                // 更新醫生信息
-                existingDoctor.FirstName = doctor.FirstName;
-                existingDoctor.LastName = doctor.LastName;
-                existingDoctor.Email = doctor.Email;
-                existingDoctor.Phone = doctor.Phone;
-                existingDoctor.Address = doctor.Address;
-                existingDoctor.UpdatedAt = DateTime.UtcNow;
+                var user = existingUser.Data;
+                if (profileUpdate.FirstName != null) user.FirstName = profileUpdate.FirstName;
+                if (profileUpdate.LastName != null) user.LastName = profileUpdate.LastName;
+                if (profileUpdate.Email != null) user.Email = profileUpdate.Email;
+                if (profileUpdate.Phone != null) user.Phone = profileUpdate.Phone;
+                if (profileUpdate.Address != null) user.Address = profileUpdate.Address;
+                user.UpdatedAt = DateTime.UtcNow;
 
+                _context.Users.Update(user);
                 await _context.SaveChangesAsync();
 
-                return ServiceResult<User>.SuccessResult(existingDoctor);
+                return ServiceResult<User>.SuccessResult(user);
             }
             catch (Exception ex)
             {
@@ -343,8 +353,6 @@ namespace Backend.Services
         {
             try
             {
-                _logger.LogInformation($"GetAvailableTimeSlots called with doctorId: {doctorId}, date: {date}");
-
                 // First check if the doctor exists
                 var doctor = await _context.Users
                     .FirstOrDefaultAsync(u => u.Id == doctorId && u.Role == Roles.Doctor);
@@ -378,8 +386,6 @@ namespace Backend.Services
                     .Select(a => new { a.StartTime, a.EndTime })
                     .ToListAsync();
 
-                _logger.LogInformation($"Found {appointments.Count} existing appointments for doctor {doctorId} on {date:yyyy-MM-dd} (UTC: {utcDate:yyyy-MM-dd})");
-
                 var timeSlots = new List<TimeSlot>();
                 foreach (var schedule in schedules)
                 {
@@ -390,13 +396,8 @@ namespace Backend.Services
                     {
                         var slotEndTime = currentTime.Add(TimeSpan.FromMinutes(30));
                         var isAvailable = !appointments.Any(a =>
-                            // Check if the new slot overlaps with any existing appointment
-                            (currentTime >= a.StartTime && currentTime < a.EndTime) ||  // New slot starts during an existing appointment
-                            (slotEndTime > a.StartTime && slotEndTime <= a.EndTime) ||  // New slot ends during an existing appointment
-                            (currentTime <= a.StartTime && slotEndTime >= a.EndTime) ||  // New slot completely contains an existing appointment
-                            (currentTime < a.StartTime && slotEndTime > a.StartTime) ||  // New slot starts before and ends during an existing appointment
-                            (currentTime < a.EndTime && slotEndTime > a.EndTime));      // New slot starts during and ends after an existing appointment
-
+                            currentTime < a.EndTime && slotEndTime > a.StartTime);
+  
                         timeSlots.Add(new TimeSlot
                         {
                             Time = currentTime,
@@ -407,7 +408,6 @@ namespace Backend.Services
                     }
                 }
 
-                _logger.LogInformation($"Generated {timeSlots.Count} time slots for doctor {doctorId} on {date}");
                 return ServiceResult<IEnumerable<TimeSlot>>.SuccessResult(timeSlots);
             }
             catch (Exception ex)

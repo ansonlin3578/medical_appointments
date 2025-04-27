@@ -4,32 +4,32 @@ using System.Text.Json.Serialization;
 
 namespace Backend.Models;
 
-public class Appointment
+public class Appointment(int id, int patientId, int doctorId, DateTime appointmentDate, TimeSpan startTime, TimeSpan endTime, string status)
 {
     [Key]
-    public int Id { get; set; }
+    public int Id { get; set; } = id;
 
     [Required(ErrorMessage = "PatientId is required")]
-    public int PatientId { get; set; }
+    public int PatientId { get; set; } = patientId;
 
     [Required(ErrorMessage = "DoctorId is required")]
-    public int DoctorId { get; set; }
+    public int DoctorId { get; set; } = doctorId;
 
     [Required(ErrorMessage = "AppointmentDate is required")]
     [DataType(DataType.Date)]
     [DisplayFormat(DataFormatString = "{0:yyyy-MM-dd}", ApplyFormatInEditMode = true)]
-    public DateTime AppointmentDate { get; set; }
+    public DateTime AppointmentDate { get; set; } = appointmentDate;
 
     [Required(ErrorMessage = "StartTime is required")]
     [JsonConverter(typeof(TimeSpanConverter))]
-    public TimeSpan StartTime { get; set; }
+    public TimeSpan StartTime { get; set; } = startTime;
 
     [Required(ErrorMessage = "EndTime is required")]
     [JsonConverter(typeof(TimeSpanConverter))]
-    public TimeSpan EndTime { get; set; }
+    public TimeSpan EndTime { get; set; } = endTime;
 
     [Required(ErrorMessage = "Status is required")]
-    public string Status { get; set; } // "Scheduled", "Completed", "Cancelled"
+    public string Status { get; set; } = status ?? throw new ArgumentNullException(nameof(status), "Status cannot be null");
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

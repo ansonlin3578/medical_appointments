@@ -1,5 +1,6 @@
 using Backend.Models;
 using Backend.Utils;
+using Backend.Models.DTOs;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -20,8 +21,8 @@ namespace Backend.Services
         Task<ServiceResult<bool>> RemoveSpecialty(int specialtyId);
         
         // 醫生信息管理
-        Task<ServiceResult<User>> UpdateDoctorProfile(int doctorId, User doctor);
         Task<ServiceResult<User>> GetDoctorProfile(int doctorId);
+        Task<ServiceResult<User>> UpdateDoctorProfile(int doctorId, UserProfileUpdateDto profileUpdate);
 
         
         // 搜索和過濾

@@ -34,21 +34,7 @@ namespace Backend.Controllers
         [HttpPut("profile/{id}")]
         public async Task<IActionResult> UpdateProfile(int id, UserProfileUpdateDto profileUpdate)
         {
-            // Get the existing user
-            var existingUser = await _doctorService.GetDoctorProfile(id);
-            if (!existingUser.Success)
-                return BadRequest(existingUser.ErrorMessage);
-
-            // Update only the provided fields
-            var user = existingUser.Data;
-            if (profileUpdate.FirstName != null) user.FirstName = profileUpdate.FirstName;
-            if (profileUpdate.LastName != null) user.LastName = profileUpdate.LastName;
-            if (profileUpdate.Email != null) user.Email = profileUpdate.Email;
-            if (profileUpdate.Phone != null) user.Phone = profileUpdate.Phone;
-            if (profileUpdate.Address != null) user.Address = profileUpdate.Address;
-            user.UpdatedAt = DateTime.UtcNow;
-
-            var result = await _doctorService.UpdateDoctorProfile(id, user);
+            var result = await _doctorService.UpdateDoctorProfile(id, profileUpdate);
             if (!result.Success)
                 return BadRequest(result.ErrorMessage);
 
@@ -88,8 +74,6 @@ namespace Backend.Controllers
         [HttpGet("available-time-slots/{doctorId}")]
         public async Task<IActionResult> GetAvailableTimeSlots(int doctorId, [FromQuery] DateTime date)
         {   
-            Console.WriteLine($"GetAvailableTimeSlots called with doctorId: {doctorId}, date: {date}");
-            
             // Ensure the date is in UTC format
             var utcDate = date.Kind == DateTimeKind.Unspecified 
                 ? DateTime.SpecifyKind(date, DateTimeKind.Utc)
@@ -101,8 +85,6 @@ namespace Backend.Controllers
                 Console.WriteLine($"Error in GetAvailableTimeSlots: {result.ErrorMessage}");
                 return BadRequest(result.ErrorMessage);
             }
-
-            Console.WriteLine($"Successfully retrieved {result.Data?.Count() ?? 0} time slots");
             return Ok(result.Data);
         }
 

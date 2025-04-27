@@ -1,11 +1,14 @@
 using Backend.Models;
 using Backend.Data;
+using Backend.Utils;
+using Backend.Models.DTOs;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Backend.Constants;
 
 namespace Backend.Services
 {
@@ -126,18 +129,15 @@ namespace Backend.Services
                     .Where(a => a.PatientId == userId)
                     .OrderByDescending(a => a.AppointmentDate)
                     .ThenBy(a => a.StartTime)
-                    .Select(a => new Appointment
-                    {
-                        Id = a.Id,
-                        PatientId = a.PatientId,
-                        DoctorId = a.DoctorId,
-                        AppointmentDate = a.AppointmentDate,
-                        StartTime = a.StartTime,
-                        EndTime = a.EndTime,
-                        Status = a.Status,
-                        CreatedAt = a.CreatedAt,
-                        UpdatedAt = a.UpdatedAt
-                    })
+                    .Select(a => new Appointment(
+                        a.Id,
+                        a.PatientId,
+                        a.DoctorId,
+                        a.AppointmentDate,
+                        a.StartTime,
+                        a.EndTime,
+                        a.Status
+                    ))
                     .ToListAsync();
                 
                 _logger.LogInformation($"Found {appointments.Count} appointments for patient {patient.Id}");
@@ -212,13 +212,12 @@ namespace Backend.Services
 
         public async Task<Patient> CreatePatientFromUser(User user)
         {
-            var patient = new Patient
-            {
-                UserId = user.Id,
-                Name = $"{user.FirstName} {user.LastName}",
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
+            var patient = new Patient(
+                id: 0, // Will be set by the database
+                userId: user.Id,
+                name: $"{user.FirstName} {user.LastName}"
+            );
+            patient.User = user;
 
             _context.Patients.Add(patient);
             await _context.SaveChangesAsync();
